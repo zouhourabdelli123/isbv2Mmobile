@@ -1,4 +1,4 @@
-package com.eyanltana.isb2M
+package com.exadev.isb
 
 import android.os.Build
 import android.os.Bundle

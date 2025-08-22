@@ -26,7 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width } = Dimensions.get('window');
 
 // Configuration API
-const API_BASE_URL = Platform.OS === 'ios' ? 'https://iitadmin.tn' : 'https://iitadmin.tn';
+const API_BASE_URL = Platform.OS === 'ios' ? 'https://isbadmin.tn' : 'https://isbadmin.tn';
 
 // Fonctions utilitaires
 const getNotificationIcon = (title) => {

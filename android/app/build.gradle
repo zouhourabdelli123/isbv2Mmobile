@@ -82,18 +82,30 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.isb2m"
+    namespace "com.isb"
     defaultConfig {
-        applicationId 'com.eyanltana.isb2M'
+       missingDimensionStrategy 'store', 'play'
+
+        applicationId "com.isb"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0"
+    }
+        flavorDimensions "store"
+    productFlavors {
+        play {
+            dimension "store"
+        }
+        amazon {
+            dimension "store"
+        }
     }
     signingConfigs {
         debug {

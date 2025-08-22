@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "isb2M",
-    "slug": "isb2M",
-    "version": "1.0.0",
+    "name": "ISB",
+    "slug": "isb",
+    "version": "2.0.4",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/isb.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/isb.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,18 +17,52 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/isb.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.eyanltana.isb2M"
+      "package": "com.exadev.isb",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "config": {
+        "firebase": {
+          "messaging": {
+            "default_notification_color": "#000000"
+          }
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "notification": {
+      "icon": "./assets/isb.png",
+      "androidMode": "default",
+      "androidCollapsedTitle": "IIT Notifications",
+      "color": "#2196F3"
+    },
+    "plugins": [
+      "react-native-iap",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "./plugins/withNotificationColorFix",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "d08995e2-11a9-4152-8eda-373baede6aef"
+        "projectId": "57a43434-f596-4469-bc0e-48585791542e"
       }
     }
   }

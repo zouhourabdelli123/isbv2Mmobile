@@ -1,4 +1,4 @@
-package com.eyanltana.isb2M
+package com.exadev.isb
 
 import android.app.Application
 import android.content.res.Configuration

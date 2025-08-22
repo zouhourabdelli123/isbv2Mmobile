@@ -209,7 +209,6 @@ export default function HomeScreen() {
       title: 'Calendrier Universitaire 2024-2025',
       description: 'Planning académique complet de l\'année universitaire avec toutes les dates importantes',
       fileName: 'CALENDRIER_UNIVERSITAIRE_2024_2025.pdf',
-      url: 'https://iitadmin.tn/assets/CALENDRIER_UNIVERSITAIRE_2024_2025.pdf',
       icon: 'calendar',
       color: ['#1E3A8A', '#1D4ED8'],
       category: 'Académique',
