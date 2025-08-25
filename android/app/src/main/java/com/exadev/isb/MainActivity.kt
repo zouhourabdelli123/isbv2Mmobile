@@ -2,7 +2,8 @@ package com.exadev.isb
 
 import android.os.Build
 import android.os.Bundle
-
+import com.exadev.isb.R   // ✅ Ajoute ceci
+import com.exadev.isb.BuildConfig // ✅ Ajoute ceci
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
