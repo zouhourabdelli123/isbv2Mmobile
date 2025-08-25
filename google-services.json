@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "714638108593",
+    "project_id": "isbv2-30569",
+    "storage_bucket": "isbv2-30569.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:714638108593:android:289ad0bfbf1c5314e7ff90",
+        "android_client_info": {
+          "package_name": "com.exadev.isb"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-SysnUumVM_USG8Debz5vpSFE6mnuQJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

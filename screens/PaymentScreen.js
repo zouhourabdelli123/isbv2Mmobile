@@ -30,63 +30,66 @@ export default function PaymentScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
 
-  const fetchPayments = async () => {
-    console.log('[fetchPayments] Début de la récupération des paiements...');
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      console.log('[fetchPayments] Token récupéré:', token);
+const fetchPayments = async () => {
+  console.log('[fetchPayments] Début de la récupération des paiements...');
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    console.log('[fetchPayments] Token récupéré:', token);
 
-      if (!token) {
-        console.log('[fetchPayments] Token est null ou inexistant');
-        throw new Error("Token is null");
-      }
-
-      const response = await fetch(`https://isbadmin.tn/api/getPaiement`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('[fetchPayments] Réponse reçue avec status:', response.status);
-
-      if (!response.ok) {
-        console.log('[fetchPayments] Erreur réponse serveur:', response.status);
-        throw new Error('Erreur lors de la récupération des paiements: ' + response.status);
-      }
-
-      const jsonResponse = await response.json();
-
-      console.log('[fetchPayments] Données reçues:', JSON.stringify(jsonResponse, null, 2));
-
-      // Extraire les paiements dans data.data.paiements
-      const paiements = jsonResponse.data?.paiements || [];
-
-      setPayments(paiements);
-
-      // Extraire années uniques (annee_universitaire) et les trier décroissant
-      const uniqueYears = [...new Set(paiements.map(p => p.annee_universitaire))].sort((a, b) => b - a);
-
-      console.log('[fetchPayments] Années uniques extraites:', uniqueYears);
-
-      setYears(uniqueYears);
-
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-
-    } catch (error) {
-      console.log('[fetchPayments] Erreur attrapée:', error.message);
-    } finally {
-      console.log('[fetchPayments] Fin de la récupération, mise à jour des états loading et refreshing');
-      setLoading(false);
-      setRefreshing(false);
+    if (!token) {
+      console.log('[fetchPayments] Token est null ou inexistant');
+      throw new Error("Token is null");
     }
-  };
 
+    const response = await fetch(`https://isbadmin.tn/api/getPaiement`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('[fetchPayments] Réponse reçue avec status:', response.status);
+
+    if (!response.ok) {
+      console.log('[fetchPayments] Erreur réponse serveur:', response.status);
+      throw new Error('Erreur lors de la récupération des paiements: ' + response.status);
+    }
+
+    const jsonResponse = await response.json();
+
+    console.log('[fetchPayments] Données reçues:', JSON.stringify(jsonResponse, null, 2));
+
+    // CORRECTION ICI : L'API retourne directement 'paiements' au niveau racine
+    const paiements = jsonResponse.paiements || [];
+
+    setPayments(paiements);
+
+    // Extraire années uniques (annee_universitaire) et les trier décroissant
+    const uniqueYears = [...new Set(paiements.map(p => p.annee_universitaire))]
+      .filter(year => year !== null && year !== undefined) // Filtre les valeurs nulles
+      .sort((a, b) => b - a);
+
+    console.log('[fetchPayments] Années uniques extraites:', uniqueYears);
+
+    setYears(uniqueYears);
+
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+  } catch (error) {
+    console.log('[fetchPayments] Erreur attrapée:', error.message);
+    // Ajouter un message d'erreur pour l'utilisateur
+    Alert.alert('Erreur', 'Impossible de charger les paiements');
+  } finally {
+    console.log('[fetchPayments] Fin de la récupération, mise à jour des états loading et refreshing');
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
   useEffect(() => {
     fetchPayments();
   }, []);

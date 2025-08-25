@@ -25,7 +25,6 @@ import Loading from '../components/loading.js';
 
 const { width, height } = Dimensions.get('window');
 
-// Palette de couleurs IIT améliorée
 const COLORS = {
   primary: '#1e3a8a',
   primaryLight: '#3b82f6',
@@ -131,7 +130,7 @@ export default function MessageScreen({ navigation }) {
   const fetchMessages = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`https://isbadmin.tn/api/message`, {
+      const response = await axios.get(`https://isbadmin.tn/api/getMessages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -192,7 +191,7 @@ export default function MessageScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await axios.post(
-        `https://isbadmin.tn/api/message`,
+        `https://isbadmin.tn/api/sendMessage`,
         { content: messageText },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -400,7 +399,7 @@ export default function MessageScreen({ navigation }) {
             </View>
             <View>
               <Text style={styles.chatTitle}>Conversation</Text>
-              <Text style={styles.chatSubtitle}>Administration IIT</Text>
+              <Text style={styles.chatSubtitle}>Administration ISB</Text>
             </View>
           </View>
           <View style={styles.headerRight}>

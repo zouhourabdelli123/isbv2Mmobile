@@ -30,11 +30,7 @@
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "config": {
-        "firebase": {
-          "messaging": {
-            "default_notification_color": "#000000"
-          }
-        }
+   
       }
     },
     "web": {
@@ -46,23 +42,10 @@
       "androidCollapsedTitle": "IIT Notifications",
       "color": "#2196F3"
     },
-    "plugins": [
-      "react-native-iap",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "./plugins/withNotificationColorFix",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
-      ]
-    ],
+
     "extra": {
       "eas": {
-        "projectId": "b5d44e4f-3b75-4298-bb6e-24b04cea79d4"
+        "projectId": "57a43434-f596-4469-bc0e-48585791542e"
       }
     }
   }

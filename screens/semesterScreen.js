@@ -22,11 +22,10 @@ import DynamicHeader from './header';
 import Header from '../components/Header';
 import { BASE_URL_APP } from '../api.js';
 import Loading from '../components/loading.js';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // or MaterialCommunityIcons
+import Icon from 'react-native-vector-icons/MaterialIcons'; 
 
 const { width, height } = Dimensions.get('window');
 
-// Palette de couleurs moderne
 const COLORS = {
   primary: '#2563eb',       // Bleu moderne
   secondary: '#f59e0b',     // Jaune doré
@@ -84,7 +83,7 @@ export default function RequestScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch(`https://isbadmin.tn/api/getSchoolYears`, {
+      const response = await fetch(`https://isbadmin.tn/api/getAvailableYears`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,10 +93,14 @@ export default function RequestScreen({ navigation }) {
 
       const data = await response.json();
 
-      if (response.ok && data.result) {
-        setSchoolYears(data.result);
-        if (data.result.length > 0) {
-          setSelectedYear(data.result[0].year);
+      if (response.ok && data.years) {
+        // Convertir les années en format attendu par le composant
+        const formattedYears = data.years.map(year => ({ year: year.toString() }));
+        setSchoolYears(formattedYears);
+        
+        // Sélectionner automatiquement la première année disponible
+        if (formattedYears.length > 0) {
+          setSelectedYear(formattedYears[0].year);
         }
       } else {
         console.log('Erreur lors de la récupération des années:', data.error);
@@ -217,7 +220,7 @@ export default function RequestScreen({ navigation }) {
         >
           <View style={styles.yearHeader}>
             <View style={styles.yearIcon}>
-      <Icon name="calendar-today" size={24} color="black" />
+              <Icon name="calendar-today" size={24} color="black" />
             </View>
             <View style={styles.yearText}>
               <Text style={styles.yearTitle}>Année scolaire</Text>
@@ -230,7 +233,7 @@ export default function RequestScreen({ navigation }) {
               <ActivityIndicator size="small" color={COLORS.primary} />
               <Text style={styles.loadingText}>Chargement...</Text>
             </View>
-          ) : (
+          ) : schoolYears.length > 0 ? (
             <TouchableOpacity
               style={styles.yearSelector}
               onPress={() => setDropdownVisible(true)}
@@ -246,6 +249,11 @@ export default function RequestScreen({ navigation }) {
                 <MaterialIcons name="expand-more" size={22} color={COLORS.textSecondary} />
               </View>
             </TouchableOpacity>
+          ) : (
+            <View style={styles.noYearsContainer}>
+              <MaterialIcons name="info-outline" size={20} color={COLORS.textSecondary} />
+              <Text style={styles.noYearsText}>Aucune année scolaire disponible</Text>
+            </View>
           )}
         </Animated.View>
 
@@ -480,6 +488,20 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
+  noYearsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: COLORS.borderLight,
+    borderRadius: 12,
+  },
+  noYearsText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
   yearSelector: {
     backgroundColor: COLORS.borderLight,
     borderRadius: 12,
@@ -617,7 +639,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Grille des semestres
   semesterGrid: {
     flexDirection: 'row',
     gap: 12,

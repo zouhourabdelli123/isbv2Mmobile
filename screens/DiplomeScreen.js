@@ -132,7 +132,6 @@ const StudentActivitiesScreen = () => {
     }
   };
 
-  // Fonctions de récupération des données
   const fetchCertifications = async () => {
     try {
       const headers = await getHeaders();

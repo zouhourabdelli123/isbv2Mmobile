@@ -20,7 +20,6 @@ import { BASE_URL_APP } from '../api';
 // Remove Expo notifications import
 // import * as Notifications from 'expo-notifications';
 // Add Firebase messaging import
-import messaging from '@react-native-firebase/messaging';
 import Modal from 'react-native-modal';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -130,26 +129,7 @@ const LoginPage = ({ navigation }) => {
     }
   };
 
-  // Updated function to get FCM token instead of Expo token
-  const requestNotificationPermission = async () => {
-    try {
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-      if (enabled) {
-        console.log('Authorization status:', authStatus);
-        return await messaging().getToken();
-      } else {
-        Alert.alert('Permission refusée', 'Les notifications ne seront pas disponibles');
-        return null;
-      }
-    } catch (error) {
-      console.log('Erreur lors de la récupération du token FCM:', error);
-      return null;
-    }
-  };
 
   // Validation améliorée avec messages spécifiques
   const validateInputs = () => {
@@ -164,8 +144,8 @@ const LoginPage = ({ navigation }) => {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setEmailError('⚠️ Format d\'email invalide (ex: nom@domaine.com)');
       valid = false;
-    } else if (!email.toLowerCase().includes('iit.ens.tn') && !email.toLowerCase().includes('@gmail.com') && !email.toLowerCase().includes('@outlook.com') && !email.toLowerCase().includes('@yahoo.com')) {
-      setEmailError('💡 Utilisez de préférence votre email institutionnel @iit.ens.tn');
+    } else if (!email.toLowerCase().includes('isb-ens.tn') && !email.toLowerCase().includes('@gmail.com') && !email.toLowerCase().includes('@outlook.com') && !email.toLowerCase().includes('@yahoo.com')) {
+      setEmailError('💡 Utilisez de préférence votre email institutionnel @isb-ens.tn');
     }
 
     if (!password.trim()) {
@@ -252,7 +232,6 @@ const LoginPage = ({ navigation }) => {
 
         // Gestion des notifications FCM
         try {
-          const fcmToken = await requestNotificationPermission();
           console.log("Token FCM récupéré:", fcmToken);
 
           if (fcmToken) {
@@ -340,7 +319,7 @@ const LoginPage = ({ navigation }) => {
               <Image source={require('../assets/isb.png')} style={styles.logo} />
               <View style={styles.logoAccent} />
             </View>
-            <Text style={styles.welcomeTitle}>Bienvenue sur IIT</Text>
+            <Text style={styles.welcomeTitle}>Bienvenue sur ISB</Text>
             <Text style={styles.welcomeSubtitle}>
               Institut International de Technologie
             </Text>
@@ -397,7 +376,7 @@ const LoginPage = ({ navigation }) => {
                 </View>
                 <TextInput
                   style={styles.input}
-                  placeholder="votre.email@iit.ens.tn"
+                  placeholder="votre.email@isb.ens.tn"
                   placeholderTextColor={IIT_COLORS.textLight}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -521,7 +500,7 @@ const LoginPage = ({ navigation }) => {
             {/* Lien d'aide */}
             <View style={styles.helpContainer}>
               <Text style={styles.helpText}>Problème de connexion ?</Text>
-              <TouchableOpacity onPress={() => Alert.alert('Aide', 'Contactez l\'administration à info@iit.tn')}>
+              <TouchableOpacity onPress={() => Alert.alert('Aide', 'Contactez l\'administration à info@isb.tn')}>
                 <Text style={styles.helpLink}>Obtenir de l'aide</Text>
               </TouchableOpacity>
             </View>
