@@ -21,12 +21,12 @@ const Loading = ({ onDismiss }) => {
   const particleAnim = useRef(new Animated.Value(0)).current;
   const containerOpacity = useRef(new Animated.Value(1)).current;
 
-  // Couleurs premium inspirées du logo IIT
-  const iitBlue = '#1e3a8a';
-  const iitGold = '#fbbf24';
-  const iitLightBlue = '#3b82f6';
-  const iitNavy = '#1e293b';
-  const iitSilver = '#e2e8f0';
+  // Couleurs premium inspirées du logo isb
+  const isbBlue = '#1e3a8a';
+  const isbGold = '#fbbf24';
+  const isbLightBlue = '#3b82f6';
+  const isbNavy = '#1e293b';
+  const isbSilver = '#e2e8f0';
 
   useEffect(() => {
     if (!isVisible) return;
@@ -223,7 +223,6 @@ const Loading = ({ onDismiss }) => {
           transform: [{ scale: scaleAnim }]
         }
       ]}>
-        {/* Particules en arrière-plan */}
         <Animated.View style={[
           styles.particleContainer,
           { transform: [{ rotate: particleRotation }] }
@@ -234,7 +233,7 @@ const Loading = ({ onDismiss }) => {
               style={[
                 styles.particle,
                 {
-                  backgroundColor: i % 2 === 0 ? iitGold : iitLightBlue,
+                  backgroundColor: i % 2 === 0 ? isbGold : isbLightBlue,
                   transform: [
                     { rotate: `${i * 45}deg` },
                     { translateY: -80 }
@@ -249,7 +248,7 @@ const Loading = ({ onDismiss }) => {
         <Animated.View style={[
           styles.ring,
           {
-            borderColor: iitSilver,
+            borderColor: isbSilver,
             transform: [{ scale: ringScale }],
             opacity: ringOpacity,
           }
@@ -259,7 +258,7 @@ const Loading = ({ onDismiss }) => {
           styles.ring,
           styles.ringSecondary,
           {
-            borderColor: iitLightBlue,
+            borderColor: isbLightBlue,
             transform: [{ scale: pulseScale }],
             opacity: pulseOpacity,
           }
@@ -278,7 +277,7 @@ const Loading = ({ onDismiss }) => {
             styles.spinnerContainer,
             { transform: [{ rotate: spin }] }
           ]}>
-            <View style={[styles.spinnerBackground, { backgroundColor: iitBlue }]}>
+            <View style={[styles.spinnerBackground, { backgroundColor: isbBlue }]}>
               <ActivityIndicator 
                 animating={true} 
                 size="large" 
@@ -293,9 +292,9 @@ const Loading = ({ onDismiss }) => {
             styles.orbitalContainer,
             { transform: [{ rotate: orbitalRotation }] }
           ]}>
-            <View style={[styles.orbitalDot, { backgroundColor: iitGold }]} />
-            <View style={[styles.orbitalDot, styles.orbitalDot2, { backgroundColor: iitLightBlue }]} />
-            <View style={[styles.orbitalDot, styles.orbitalDot3, { backgroundColor: iitGold }]} />
+            <View style={[styles.orbitalDot, { backgroundColor: isbGold }]} />
+            <View style={[styles.orbitalDot, styles.orbitalDot2, { backgroundColor: isbLightBlue }]} />
+            <View style={[styles.orbitalDot, styles.orbitalDot3, { backgroundColor: isbGold }]} />
           </Animated.View>
         </Animated.View>
 
@@ -303,8 +302,8 @@ const Loading = ({ onDismiss }) => {
           styles.textContainer,
           { opacity: fadeAnim }
         ]}>
-          <Text style={[styles.mainText, { color: iitBlue }]}>
-            IIT
+          <Text style={[styles.mainText, { color: isbBlue }]}>
+            ISB
           </Text>
        
           <Text style={[styles.loadingText, { color: colors.text }]}>
@@ -319,7 +318,7 @@ const Loading = ({ onDismiss }) => {
           <Animated.View style={[
             styles.dot, 
             { 
-              backgroundColor: iitBlue,
+              backgroundColor: isbBlue,
               opacity: dotAnim1,
               transform: [{
                 scale: dotAnim1.interpolate({
@@ -335,7 +334,7 @@ const Loading = ({ onDismiss }) => {
           <Animated.View style={[
             styles.dot, 
             { 
-              backgroundColor: iitGold,
+              backgroundColor: isbGold,
               opacity: dotAnim2,
               transform: [{
                 scale: dotAnim2.interpolate({
@@ -351,7 +350,7 @@ const Loading = ({ onDismiss }) => {
           <Animated.View style={[
             styles.dot, 
             { 
-              backgroundColor: iitLightBlue,
+              backgroundColor: isbLightBlue,
               opacity: dotAnim3,
               transform: [{
                 scale: dotAnim3.interpolate({

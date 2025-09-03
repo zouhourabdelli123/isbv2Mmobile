@@ -40,6 +40,7 @@ export default function NotesScreen({ navigation, route }) {
   const [selectedMatiere, setSelectedMatiere] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [moduleAverages, setModuleAverages] = useState({});
+  const [uniqueModules, setUniqueModules] = useState([]);
 
   const { year, semester } = route.params || {};
 
@@ -75,28 +76,24 @@ export default function NotesScreen({ navigation, route }) {
     }
   };
 
+  // Fonction pour extraire les modules uniques à partir des notes
+  const extractUniqueModules = (notesData) => {
+    if (!notesData || !notesData.notes) return [];
+    const modules = [...new Set(notesData.notes.map(note => note.element))];
+    return modules.map(element => ({ module: element }));
+  };
+
   const calculateModuleAverages = (notesData) => {
-    if (!notesData || !notesData.notes || !notesData.matiere) return {};
+    if (!notesData || !notesData.notes) return {};
     
     const moduleGroups = {};
-    const moduleCoefficients = {};
     
-    notesData.matiere.forEach(matiere => {
-      moduleCoefficients[matiere.module] = {
-        ds: matiere.ds || 0,
-        examen: matiere.examen || 0,
-        oral: matiere.oral || 0,
-        tp: matiere.tp || 0,
-        projet: matiere.projet || 0,
-        test: matiere.test || 0
-      };
-    });
-    
+    // Grouper les notes par module (element)
     notesData.notes.forEach(note => {
-      if (!moduleGroups[note.module]) {
-        moduleGroups[note.module] = [];
+      if (!moduleGroups[note.element]) {
+        moduleGroups[note.element] = [];
       }
-      moduleGroups[note.module].push({
+      moduleGroups[note.element].push({
         type: note.type_evaluation,
         note: parseFloat(note.note)
       });
@@ -105,23 +102,37 @@ export default function NotesScreen({ navigation, route }) {
     const averages = {};
     Object.keys(moduleGroups).forEach(module => {
       const notes = moduleGroups[module];
-      const coeffs = moduleCoefficients[module] || {};
       
       let totalWeighted = 0;
       let totalCoeff = 0;
       let passed = 0;
       
       notes.forEach(note => {
-        let coeff = 0;
+        let coeff = 1; // Coefficient par défaut
         
+        // Assigner des coefficients basés sur le type d'évaluation
         switch(note.type) {
-          case 'DS': coeff = coeffs.ds; break;
-          case 'EXA': coeff = coeffs.examen; break;
-          case 'ORALE': coeff = coeffs.oral; break;
-          case 'TP': case 'TP1': case 'TP2': case 'TP3': coeff = coeffs.tp; break;
-          case 'PROJET': coeff = coeffs.projet; break;
-          case 'TEST': coeff = coeffs.test; break;
-          default: coeff = 0;
+          case 'DS1':
+          case 'DS2': 
+            coeff = 0.3; 
+            break;
+          case 'EXA': 
+            coeff = 0.7; 
+            break;
+          case 'TP': 
+          case 'TP1': 
+          case 'TP2': 
+          case 'TP3': 
+            coeff = 0.2; 
+            break;
+          case 'PROJET': 
+            coeff = 0.4; 
+            break;
+          case 'TEST': 
+            coeff = 0.2; 
+            break;
+          default: 
+            coeff = 0.3;
         }
         
         totalWeighted += note.note * coeff;
@@ -143,7 +154,7 @@ export default function NotesScreen({ navigation, route }) {
   };
 
   const calculateStats = (notesData) => {
-    if (!notesData || !notesData.notes || !notesData.matiere) return { total: 0, passed: 0, average: 0 };
+    if (!notesData || !notesData.notes) return { total: 0, passed: 0, average: 0 };
     
     const moduleAvgs = calculateModuleAverages(notesData);
     const modules = Object.keys(moduleAvgs);
@@ -187,7 +198,7 @@ export default function NotesScreen({ navigation, route }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          year: year,
+          annee: year, // Changé de 'year' à 'annee' selon l'API
           semestre: semester
         })
       });
@@ -196,6 +207,8 @@ export default function NotesScreen({ navigation, route }) {
 
       if (response.ok && data.result) {
         setNotesData(data.result);
+        const modules = extractUniqueModules(data.result);
+        setUniqueModules(modules);
         setModuleAverages(calculateModuleAverages(data.result));
         setStats(calculateStats(data.result));
       } else {
@@ -232,10 +245,10 @@ export default function NotesScreen({ navigation, route }) {
 
   const getGradeLabel = (note) => {
     const grade = parseFloat(note);
-    if (grade >= 16) return ' Excellent';
-    if (grade >= 14) return ' Très Bien';
-    if (grade >= 12) return ' Bien';
-    if (grade >= 10) return ' Passable';
+    if (grade >= 16) return '⭐ Excellent';
+    if (grade >= 14) return '👍 Très Bien';
+    if (grade >= 12) return '✅ Bien';
+    if (grade >= 10) return '☑️ Passable';
     return '❌ À repasser';
   };
 
@@ -307,7 +320,7 @@ export default function NotesScreen({ navigation, route }) {
                     Toutes
                   </Text>
                 </TouchableOpacity>
-                {getUniqueModules().map((module, index) => (
+                {getUniqueModulesNames().map((module, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
@@ -320,7 +333,7 @@ export default function NotesScreen({ navigation, route }) {
                       styles.filterChipText,
                       selectedMatiere === module && styles.filterChipTextActive
                     ]}>
-                      {module}
+                      {module.length > 15 ? module.substring(0, 15) + '...' : module}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -339,8 +352,6 @@ export default function NotesScreen({ navigation, route }) {
       </LinearGradient>
     </Animated.View>
   );
-
-
 
   const renderSubjectItem = ({ item, index }) => {
     const moduleNotes = getFilteredNotesForModule(item.module);
@@ -435,9 +446,9 @@ export default function NotesScreen({ navigation, route }) {
   };
 
   const getFilteredData = () => {
-    if (!notesData || !notesData.matiere) return [];
+    if (!uniqueModules) return [];
     
-    let filteredMatieres = notesData.matiere;
+    let filteredMatieres = uniqueModules;
     
     if (selectedMatiere !== 'all') {
       filteredMatieres = filteredMatieres.filter(matiere => 
@@ -457,18 +468,18 @@ export default function NotesScreen({ navigation, route }) {
   const getFilteredNotesForModule = (module) => {
     if (!notesData || !notesData.notes) return [];
     
-    let filteredNotes = notesData.notes.filter(note => note.module === module);
+    let filteredNotes = notesData.notes.filter(note => note.element === module);
     
     if (selectedModule !== 'all') {
-      filteredNotes = filteredNotes.filter(note => note.module === selectedModule);
+      filteredNotes = filteredNotes.filter(note => note.element === selectedModule);
     }
     
     return filteredNotes;
   };
 
-  const getUniqueModules = () => {
-    if (!notesData || !notesData.matiere) return [];
-    return [...new Set(notesData.matiere.map(item => item.module))];
+  const getUniqueModulesNames = () => {
+    if (!uniqueModules) return [];
+    return uniqueModules.map(item => item.module);
   };
 
   if (loading) {
@@ -485,7 +496,7 @@ export default function NotesScreen({ navigation, route }) {
         subtitle={`Année ${year}`}
         withBackButton 
       />
-   <DynamicHeader 
+      <DynamicHeader 
         title="Mes Notes"
         subtitle="Explorez vos résultats académiques"
         iconName="school"
@@ -577,7 +588,7 @@ export default function NotesScreen({ navigation, route }) {
                       <MaterialCommunityIcons name="book-open-variant" size={20} color="#3b82f6" />
                     </View>
                     <Text style={styles.modalLabel}>Matière</Text>
-                    <Text style={styles.modalValue}>{selectedNote.module}</Text>
+                    <Text style={styles.modalValue}>{selectedNote.element}</Text>
                   </View>
                   
                   <View style={styles.modalRow}>
@@ -588,7 +599,7 @@ export default function NotesScreen({ navigation, route }) {
                     <Text style={styles.modalValue}>{selectedNote.type_evaluation}</Text>
                   </View>
 
-                  {moduleAverages[selectedNote.module] && (
+                  {moduleAverages[selectedNote.element] && (
                     <View style={styles.modalRow}>
                       <View style={styles.modalRowIcon}>
                         <MaterialCommunityIcons name="calculator" size={20} color="#3b82f6" />
@@ -596,9 +607,9 @@ export default function NotesScreen({ navigation, route }) {
                       <Text style={styles.modalLabel}>Moyenne du module</Text>
                       <Text style={[
                         styles.modalValue,
-                        { color: getGradeColor(moduleAverages[selectedNote.module].average) }
+                        { color: getGradeColor(moduleAverages[selectedNote.element].average) }
                       ]}>
-                        {moduleAverages[selectedNote.module].average}/20
+                        {moduleAverages[selectedNote.element].average}/20
                       </Text>
                     </View>
                   )}

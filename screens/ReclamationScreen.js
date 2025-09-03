@@ -19,7 +19,7 @@ import Loading from '../components/loading.js';
 
 const { width } = Dimensions.get('window');
 
-export default function RequestScreen({ navigation }) {
+export default function ReclamationScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
@@ -73,17 +73,15 @@ export default function RequestScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="Demandes" withBackButton />
+      <Header title="Réclamations" withBackButton />
       
-
-         <DynamicHeader 
-        title="Mes Demandes"
-        subtitle="Gestion des demandes administratives"
+      <DynamicHeader 
+        title="Mes Réclamations"
+        subtitle="Gestion des réclamations administratives"
         iconName="file-document-multiple"
         userInfo={userInfo}
         slideAnim={slideAnim}
       />
-
 
       <ScrollView 
         contentContainerStyle={styles.content}
@@ -110,9 +108,10 @@ export default function RequestScreen({ navigation }) {
             }
           ]}
         >
+          {/* Card Faire une réclamation */}
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => navigation.navigate('Creedemande')}
+            onPress={() => navigation.navigate('CreateReclamtion')}
             activeOpacity={0.9}
           >
             <LinearGradient
@@ -129,22 +128,22 @@ export default function RequestScreen({ navigation }) {
                 </View>
                 
                 <View style={styles.cardTextContainer}>
-                  <Text style={styles.cardTitle}>Nouvelle Demande</Text>
+                  <Text style={styles.cardTitle}>Nouvelle Réclamation</Text>
                   <Text style={styles.cardSubtitle}>
-                    Créer une demande administrative
+                    Créer une réclamation administrative
                   </Text>
                   <View style={styles.cardFeatures}>
                     <View style={styles.featureItem}>
                       <View style={styles.featureDot} />
-                      <Text style={styles.featureText}>Attestation de scolarité</Text>
+                      <Text style={styles.featureText}>Problème administratif</Text>
                     </View>
                     <View style={styles.featureItem}>
                       <View style={styles.featureDot} />
-                      <Text style={styles.featureText}>Relevé de notes</Text>
+                      <Text style={styles.featureText}>Erreur dans les notes</Text>
                     </View>
                     <View style={styles.featureItem}>
                       <View style={styles.featureDot} />
-                      <Text style={styles.featureText}>Certificat de réussite</Text>
+                      <Text style={styles.featureText}>Dysfonctionnement service</Text>
                     </View>
                   </View>
                 </View>
@@ -158,10 +157,10 @@ export default function RequestScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Card Suivre demande - Accent doré */}
+          {/* Card Suivi des réclamations */}
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => navigation.navigate('Recupererdemande')}
+            onPress={() => navigation.navigate('SuiviReclamation')}
             activeOpacity={0.9}
           >
             <LinearGradient
@@ -179,22 +178,22 @@ export default function RequestScreen({ navigation }) {
                 
                 <View style={styles.cardTextContainer}>
                   <Text style={[styles.cardTitle, { color: '#1E3A8A' }]}>
-                    Suivre Demande
+                    Suivi des Réclamations
                   </Text>
                   <Text style={[styles.cardSubtitle, { color: 'rgba(30, 58, 138, 0.8)' }]}>
-                    Consulter le statut de vos demandes
+                    Suivre l'état de vos réclamations
                   </Text>
                   <View style={styles.cardFeatures}>
                     <View style={styles.featureItem}>
                       <View style={[styles.featureDot, { backgroundColor: '#1E3A8A' }]} />
                       <Text style={[styles.featureText, { color: '#1E3A8A' }]}>
-                        Statut en temps réel
+                        Réponse rapide
                       </Text>
                     </View>
                     <View style={styles.featureItem}>
                       <View style={[styles.featureDot, { backgroundColor: '#1E3A8A' }]} />
                       <Text style={[styles.featureText, { color: '#1E3A8A' }]}>
-                        Historique complet
+                        Suivi en temps réel
                       </Text>
                     </View>
                     <View style={styles.featureItem}>
@@ -215,10 +214,6 @@ export default function RequestScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
-
-
-
-
       </ScrollView>
     </View>
   );
@@ -229,104 +224,11 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#F8FAFC' 
   },
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  loadingText: { 
-    marginTop: 10, 
-    fontSize: 16, 
-    color: '#374151' 
-  },
-  
-  // Header amélioré
-  headerContainer: {
-    marginBottom: 10,
-  },
-  headerGradient: { 
-    paddingVertical: 32, 
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerContent: { 
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  headerIconContainer: {
-    marginBottom: 16,
-  },
-  headerIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  headerTitle: { 
-    color: 'white', 
-    fontSize: 28, 
-    fontWeight: 'bold', 
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  headerSubtitle: { 
-    color: 'rgba(255, 255, 255, 0.9)', 
-    fontSize: 16, 
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backdropFilter: 'blur(10px)',
-  },
-  statItem: { 
-    alignItems: 'center',
-    flex: 1,
-  },
-  statNumber: { 
-    color: '#F59E0B', 
-    fontSize: 24, 
-    fontWeight: 'bold' 
-  },
-  statLabel: { 
-    color: 'rgba(255, 255, 255, 0.9)', 
-    fontSize: 12, 
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 20,
-  },
-  decorativePattern: {
-    position: 'absolute',
-    right: -30,
-    top: -30,
-    zIndex: 1,
-  },
-
   content: { 
     paddingHorizontal: 20, 
     paddingBottom: 40, 
     paddingTop: 20 
   },
-
-
   actionCard: {
     marginBottom: 20,
     borderRadius: 24,
@@ -341,7 +243,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardContent: {
-    
     flexDirection: 'row',
     alignItems: 'center',
     padding: 24,
@@ -357,13 +258,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    backdropFilter: 'blur(10px)',
   },
-  cardTextContainer: {
-    
-
-    flex: 1,
-  },
+  cardTextContainer: { flex: 1 },
   cardTitle: {
     color: 'white',
     fontSize: 22,
@@ -375,9 +271,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 12,
   },
-  cardFeatures: {
-    marginTop: 8,
-  },
+  cardFeatures: { marginTop: 8 },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -395,9 +289,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
   },
-  cardArrow: {
-    marginLeft: 16,
-  },
+  cardArrow: { marginLeft: 16 },
   arrowContainer: {
     width: 40,
     height: 40,
@@ -405,106 +297,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  infoSection: {
-    marginTop: 24,
-  },
-  infoCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  infoIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  infoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  infoContent: {
-    gap: 16,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoItemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  infoItemContent: {
-    flex: 1,
-    paddingTop: 2,
-  },
-  infoItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  infoItemText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-
-  // Help section améliorée
-  helpSection: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  helpTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 20,
-  },
-  helpButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: 12,
-  },
-  helpButton: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  helpButtonGradient: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-  },
-  helpButtonText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
   },
 });

@@ -354,12 +354,7 @@ export default function DocumentsScreen({ navigation }) {
             
             <View style={styles.documentInfo}>
               <Text style={styles.documentName}>{docInfo.name}</Text>
-              <View style={styles.documentMeta}>
-                <MaterialIcons name="schedule" size={14} color="#6B7280" />
-                <Text style={styles.documentDate}>
-                  {dateInfo.relative}
-                </Text>
-              </View>
+        
               <View style={styles.documentMeta}>
                 <MaterialIcons name="event" size={14} color="#9CA3AF" />
                 <Text style={styles.documentDateDetail}>

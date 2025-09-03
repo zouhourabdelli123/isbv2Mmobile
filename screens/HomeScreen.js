@@ -167,40 +167,36 @@ export default function HomeScreen() {
       gradient: ['#1E3A8A', '#2563EB'],
       description: 'Consultez vos notes'
     },
-    { 
-      title: 'Documents', 
-      icon: 'folder-outline', 
-      screen: 'Documents',
+       { 
+      title: 'Paiements', 
+      icon: 'card-outline', 
+      screen: 'Payment',
       gradient: ['#F59E0B', '#FBBF24'],
-      description: 'Gérez vos fichiers'
+      description: 'Historique des paiements'
     },
-    { 
+      { 
       title: 'Emploi du temps', 
       icon: 'calendar-outline', 
       screen: 'Emploi',
       gradient: ['#1E3A8A', '#3B82F6'],
       description: 'Planning des cours'
     },
+
+
+ 
     { 
-      title: 'Diplômes', 
-      icon: 'ribbon-outline', 
-      screen: 'Diplome',
-      gradient: ['#F59E0B', '#F97316'],
-      description: 'Vos certifications'
-    },
-    { 
-      title: 'Paiements', 
-      icon: 'card-outline', 
-      screen: 'Payment',
-      gradient: ['#1E3A8A', '#1D4ED8'],
-      description: 'Historique des paiements'
-    },
-    { 
-      title: 'Absences', 
-      icon: 'person-remove-outline', 
-      screen: 'Absences',
+      title: 'Réclamation', 
+      icon: 'alert-circle-outline', 
+      screen: 'Reclamation',
       gradient: ['#EF4444', '#DC2626'],
-      description: 'Suivi des absences'
+      description: 'Déposer une réclamation'
+    },
+        { 
+      title: 'Documents', 
+      icon: 'folder-outline', 
+      screen: 'Documents',
+      gradient: ['#1E3A8A', '#3B82F6'],
+      description: 'Gérez vos fichiers'
     },
   ];
 
@@ -209,6 +205,7 @@ export default function HomeScreen() {
       title: 'Calendrier Universitaire 2024-2025',
       description: 'Planning académique complet de l\'année universitaire avec toutes les dates importantes',
       fileName: 'CALENDRIER_UNIVERSITAIRE_2024_2025.pdf',
+      url: 'https://isbadmin.tn/storage/emploi/calendrier_2025-2026.pdf',
       icon: 'calendar',
       color: ['#1E3A8A', '#1D4ED8'],
       category: 'Académique',
@@ -218,37 +215,38 @@ export default function HomeScreen() {
 
   const handleOpenPDF = async (url, title) => {
     try {
-      const correctedUrl = url.replace(/\s/g, '_').replace(/%20/g, '_');
+      // Vérifier si l'URL est valide
+      if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
+        Alert.alert(
+          'Lien non configuré',
+          'Le document n\'est pas encore disponible. Veuillez contacter l\'administration.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Vérifier si on peut ouvrir le lien
+      const supported = await Linking.canOpenURL(url);
       
-      Alert.alert(
-        "Ouvrir le document",
-        `Voulez-vous ouvrir "${title}" ?`,
-        [
-          {
-            text: "Annuler",
-            style: "cancel"
-          },
-          {
-            text: "Navigateur",
-            onPress: () => {
-              Linking.openURL(correctedUrl).catch(() => {
-                Alert.alert('Erreur', 'Impossible d\'ouvrir le document');
-              });
-            }
-          },
-          {
-            text: "Vue intégrée",
-            onPress: () => {
-              setCurrentPdfUrl(correctedUrl);
-              setShowWebView(true);
-            }
-          }
-        ]
-      );
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(
+          'Erreur',
+          `Impossible d'ouvrir le document: ${title}`,
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le document');
+      Alert.alert(
+        'Erreur',
+        'Une erreur s\'est produite lors de l\'ouverture du document.',
+        [{ text: 'OK' }]
+      );
+      console.error('Erreur d\'ouverture PDF:', error);
     }
   };
+
 
   const handleCloseWebView = () => {
     setShowWebView(false);

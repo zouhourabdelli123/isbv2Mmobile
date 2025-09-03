@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import DynamicHeader from '../screens/header';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from 'axios';
 import { BASE_URL_APP } from '../api.js';
 
@@ -131,22 +130,22 @@ export default function CreateRequestScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem('userToken');
       
-      // Préparer les données selon le type  document
+      // Préparer les données selon le type de document
       const requestData = {
         type: selectedType,
         urgent: isUrgent ? "true" : "false", // L'API attend une string
-        justification: isUrgent ? justification.trim() : null,
+        justification: isUrgent ? justification.trim() : "",
       };
 
       // Pour les documents autres que DS, ajouter l'année
       if (selectedType !== 'DS') {
-        requestData.year = new Date().getFullYear(); // ou une année spécifique selon vos besoins
+        requestData.year = new Date().getFullYear();
       }
 
       console.log('Données envoyées à l\'API:', requestData);
 
       const response = await axios.post(
-        `https://isbadmin.tn/api/createDocument`,
+        `${BASE_URL_APP}/createDocument`,
         requestData,
         {
           headers: {
@@ -158,31 +157,14 @@ export default function CreateRequestScreen({ navigation }) {
 
       console.log('Réponse de l\'API:', response.data);
 
-      // Vérifier si la réponse contient les informations de spécialité et année scolaire
-      if (response.data.document) {
-        const { document } = response.data;
-        
-        let successMessage = 'Votre demande a été créée avec succès';
-        
-        // Afficher les informations spécifiques pour les demandes de stage
-        if (selectedType === 'DS' && document.speciality && document.schoolyear) {
-          successMessage += `\n\nSpécialité: ${document.speciality}\nAnnée scolaire: ${document.schoolyear}`;
-        }
-
-        Alert.alert('Succès', successMessage, [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              // Optionnel: passer les données du document créé à l'écran précédent
-              navigation.goBack();
-            }
-          },
-        ]);
-      } else {
-        Alert.alert('Succès', 'Votre demande a été créée avec succès', [
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]);
-      }
+      Alert.alert('Succès', 'Votre demande a été créée avec succès', [
+        { 
+          text: 'OK', 
+          onPress: () => {
+            navigation.goBack();
+          }
+        },
+      ]);
 
     } catch (error) {
       console.log('Erreur lors de la création de la demande:', error);
@@ -319,16 +301,6 @@ export default function CreateRequestScreen({ navigation }) {
                 />
               </View>
             </TouchableOpacity>
-
-            {/* Affichage d'informations spéciales pour les demandes de stage */}
-            {selectedType === 'DS' && (
-              <View style={styles.infoMessage}>
-                <MaterialIcons name="info" size={16} color="#0369A1" />
-                <Text style={styles.infoMessageText}>
-                  La spécialité et l'année scolaire seront automatiquement récupérées depuis votre profil étudiant.
-                </Text>
-              </View>
-            )}
 
             {/* Modal de la liste déroulante */}
             <Modal
@@ -483,7 +455,6 @@ export default function CreateRequestScreen({ navigation }) {
               • Demande urgente : 24-48 heures{'\n'}
               • Notification par email à chaque étape{'\n'}
               • Documents téléchargeables une fois prêts
-              {selectedType === 'DS' && '\n• Spécialité et année automatiquement récupérées'}
             </Text>
           </View>
         </Animated.View>
@@ -610,25 +581,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
-  },
-
-  // Info message styles
-  infoMessage: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#EFF6FF',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  infoMessageText: {
-    fontSize: 14,
-    color: '#0369A1',
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
   },
 
   // Modal styles

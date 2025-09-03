@@ -68,12 +68,18 @@ export default function ScheduleScreen({ navigation }) {
 
       const result = await response.json();
 
-      if (response.ok && result.pdfUrl) {
-        setPdfUrl(result.pdfUrl);
-        setError(null);
-      } else {
-        throw new Error(result.message || 'Erreur lors de la récupération du calendrier');
-      }
+ if (response.ok && result.pdfUrl) {
+  // Corriger l'URL relative en absolue
+  const absoluteUrl = result.pdfUrl.startsWith('http')
+    ? result.pdfUrl
+    : `${BASE_URL_APP.replace(/\/$/, '')}/${result.pdfUrl.replace(/^\//, '')}`;
+  
+  setPdfUrl(absoluteUrl);
+  setError(null);
+} else {
+  throw new Error(result.message || 'Erreur lors de la récupération du calendrier');
+}
+
     } catch (err) {
       console.log('Fetch schedule error:', err);
       setError(err.message);

@@ -1,26 +1,33 @@
 {
   "expo": {
-    "name": "ISB",
+    "name": "isb",
     "slug": "isb",
-    "version": "2.0.4",
-    "orientation": "portrait",
-    "icon": "./assets/isb.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "version": "1.0.4",
+    "icon": "./assets/isbfont.png",
     "splash": {
-      "image": "./assets/isb.png",
-      "resizeMode": "contain",
+      "image": "./assets/isbfont.png",
       "backgroundColor": "#ffffff"
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.exadev.isb",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/isb.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/isbfont.png",
+        "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.exadev.isb",
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
@@ -29,23 +36,58 @@
       ],
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
+      "googleServicesFile": "./google-services.json",
       "config": {
-   
+        "firebase": {
+          "messaging": {
+            "default_notification_color": "#1e40af",
+            "default_notification_channel_id": "isb_notifications"
+          }
+        }
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/isb.png"
     },
     "notification": {
-      "icon": "./assets/isb.png",
+      "icon": "./assets/isbfont.png",
+      "color": "#1e40af",
       "androidMode": "default",
-      "androidCollapsedTitle": "IIT Notifications",
-      "color": "#2196F3"
+      "androidCollapsedTitle": "ISB Notifications",
+      "iosDisplayInForeground": true
     },
-
+    "plugins": [
+      "react-native-iap",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/isbfont.png",
+          "color": "#1e40af",
+          "sounds": [
+            "./assets/notification-sound.wav"
+          ]
+        }
+      ],
+      "./plugins/withNotificationColorFix",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          },
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0"
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "57a43434-f596-4469-bc0e-48585791542e"
+        "projectId": "22754d56-6c31-479c-affb-36db38cfb870"
       }
     }
   }

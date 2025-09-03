@@ -5,13 +5,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Animated,
   Dimensions,
   RefreshControl,
   TextInput,
   Platform,
   FlatList,
-  KeyboardAvoidingView,
   ScrollView,
   Alert,
   Linking
@@ -23,31 +21,22 @@ import Header from '../components/Header';
 import DynamicHeader from './header';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Configuration API
-const API_BASE_URL = Platform.OS === 'ios' ? 'https://isbadmin.tn' : 'https://isbadmin.tn';
+import { BASE_URL_APP } from '../api.js';
 
 // Fonctions utilitaires
 const getNotificationIcon = (title) => {
   if (!title) return 'notifications-outline';
   const lowerTitle = title.toLowerCase();
   if (lowerTitle.includes('demande')) return 'document-text-outline';
-  if (lowerTitle.includes('validation')) return 'checkmark-circle-outline';
-  if (lowerTitle.includes('rejet')) return 'close-circle-outline';
+  if (lowerTitle.includes('validation') || lowerTitle.includes('approuvé')) return 'checkmark-circle-outline';
+  if (lowerTitle.includes('rejet') || lowerTitle.includes('refus')) return 'close-circle-outline';
   if (lowerTitle.includes('message')) return 'mail-outline';
   if (lowerTitle.includes('urgent')) return 'warning-outline';
+  if (lowerTitle.includes('information')) return 'information-circle-outline';
   return 'notifications-outline';
-};
-
-const getNotificationColor = (title) => {
-  if (!title) return '#3B82F6';
-  const lowerTitle = title.toLowerCase();
-  if (lowerTitle.includes('validation')) return '#10B981';
-  if (lowerTitle.includes('rejet')) return '#EF4444';
-  if (lowerTitle.includes('urgent')) return '#F59E0B';
-  if (lowerTitle.includes('message')) return '#8B5CF6';
-  return '#3B82F6';
 };
 
 const formatDate = (dateString) => {
@@ -55,48 +44,75 @@ const formatDate = (dateString) => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
+    
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    
     return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch (error) {
-    console.warn('Error formatting date:', error);
-    return '';
-  }
-};
-
-const formatTime = (dateString) => {
-  if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   } catch (error) {
-    console.warn('Error formatting time:', error);
     return '';
   }
 };
 
-// Fonction améliorée pour traiter le HTML (garde la même logique d'affichage)
+// Fonction pour traiter le HTML - CORRIGÉE
 const stripHtml = (html) => {
-  if (!html) return '';
-  return html
-    .replace(/<br\s*\/?>/gi, '\n') // Remplace <br> par des retours à la ligne
-    .replace(/<\/p>/gi, '\n\n') // Remplace </p> par double retour à la ligne
-    .replace(/<p[^>]*>/gi, '') // Supprime les balises <p>
-    .replace(/<[^>]*>/g, '') // Enlève les autres balises HTML
-    .replace(/\s+/g, ' ') // Réduit les espaces multiples
-    .replace(/\n\s+/g, '\n') // Nettoie les espaces après les retours à la ligne
-    .trim();
+  if (!html || typeof html !== 'string') return '';
+  
+  try {
+    // D'abord, décoder les entités HTML
+    let text = html
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&eacute;/g, 'é')
+      .replace(/&egrave;/g, 'è')
+      .replace(/&ecirc;/g, 'ê')
+      .replace(/&agrave;/g, 'à')
+      .replace(/&ccedil;/g, 'ç')
+      .replace(/&ocirc;/g, 'ô')
+      .replace(/&ucirc;/g, 'û')
+      .replace(/&icirc;/g, 'î');
+    
+    // Ensuite, supprimer les balises HTML tout en préservant le texte
+    text = text.replace(/<[^>]*>/g, '');
+    
+    // Nettoyer les espaces multiples et les sauts de ligne
+    text = text
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s+/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    
+    return text;
+  } catch (error) {
+    console.error('Error stripping HTML:', error);
+    return html.toString();
+  }
 };
 
-// Composant pour afficher le texte avec les liens cliquables
-const RenderTextWithLinks = ({ text, style }) => {
-  const openLink = (url) => {
+// Fonction pour compter les mots
+const getWordCount = (text) => {
+  if (!text || typeof text !== 'string') return 0;
+  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+};
+
+// Composant pour afficher le texte avec les liens cliquables - AMÉLIORÉ
+const RenderTextWithLinks = ({ text, style, numberOfLines }) => {
+  const openLink = useCallback((url) => {
     try {
       let finalUrl = url;
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -110,31 +126,31 @@ const RenderTextWithLinks = ({ text, style }) => {
           { text: 'Annuler', style: 'cancel' },
           { 
             text: 'Ouvrir', 
-            onPress: () => Linking.openURL(finalUrl).catch(err => {
-              console.log('Erreur lors de l\'ouverture du lien:', err);
+            onPress: () => Linking.openURL(finalUrl).catch(() => {
               Alert.alert('Erreur', 'Impossible d\'ouvrir le lien');
             })
           }
         ]
       );
     } catch (error) {
-      console.log('Erreur lors du traitement du lien:', error);
       Alert.alert('Erreur', 'Lien non valide');
     }
-  };
+  }, []);
 
-  // Regex pour détecter les URLs
-  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  if (!text) return null;
+
+  // Regex améliorée pour détecter plus de types d'URLs
+  const urlRegex = /(https?:\/\/[^\s<>]+|www\.[^\s<>]+\.[^\s<>]+|[^\s<>]+\.[^\s<>]{2,}(?:\/[^\s<>]*)?)/gi;
   const parts = text.split(urlRegex);
   
   return (
-    <Text style={style}>
+    <Text style={style} numberOfLines={numberOfLines}>
       {parts.map((part, index) => {
         if (urlRegex.test(part)) {
           return (
             <Text
               key={index}
-              style={styles.linkText}
+              style={styles.linkTextInContent}
               onPress={() => openLink(part)}
             >
               {part}
@@ -147,87 +163,29 @@ const RenderTextWithLinks = ({ text, style }) => {
   );
 };
 
-const groupNotificationsByDate = (notifications) => {
-  const groups = {};
-  
-  notifications.forEach(notification => {
-    const dateKey = new Date(notification.date).toDateString();
-    if (!groups[dateKey]) {
-      groups[dateKey] = [];
-    }
-    groups[dateKey].push(notification);
-  });
-  
-  return Object.keys(groups)
-    .sort((a, b) => new Date(b) - new Date(a))
-    .map(dateKey => ({
-      dateKey,
-      dateLabel: getDateLabel(dateKey),
-      notifications: groups[dateKey].sort((a, b) => new Date(b.date) - new Date(a.date))
-    }));
-};
-
-const getDateLabel = (dateString) => {
-  try {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
-    if (date.toDateString() === yesterday.toDateString()) return "Hier";
-    
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  } catch (error) {
-    console.warn('Error formatting date label:', error);
-    return dateString;
-  }
-};
-
 const NotificationScreen = () => {
   const navigation = useNavigation();
   const [notifications, setNotifications] = useState([]);
   const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(0));
-  const [cardsAnim] = useState(new Animated.Value(0));
-  const [searchAnim] = useState(new Animated.Value(0));
   const [userInfo, setUserInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [expandedIds, setExpandedIds] = useState(new Set());
-  const [loadingExpand, setLoadingExpand] = useState(new Set());
-  const [fullTexts, setFullTexts] = useState({});
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Charger les infos utilisateur et les notifications
+  // Charger les données
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Charger les infos utilisateur
         const userData = await AsyncStorage.getItem('userData');
         if (userData) {
           setUserInfo(JSON.parse(userData));
         }
         
-        // Animation d'entrée
-        Animated.sequence([
-          Animated.timing(slideAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-          Animated.timing(searchAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-          Animated.timing(cardsAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ]).start();
-        
-        // Charger les notifications
         await fetchNotifications();
       } catch (error) {
-        console.log('Error loading data:', error);
+        console.error('Erreur lors du chargement:', error);
         Alert.alert('Erreur', 'Impossible de charger les données');
       } finally {
         setLoading(false);
@@ -237,612 +195,683 @@ const NotificationScreen = () => {
     loadData();
   }, []);
 
-  // Filtrer les notifications selon la recherche
+  // Filtrer les notifications avec optimisation
   useEffect(() => {
-    if (!searchQuery) {
+    if (!searchQuery.trim()) {
       setFilteredNotifications(notifications);
       return;
     }
 
-    const query = searchQuery.toLowerCase();
-    const filtered = notifications.filter(notif => 
-      (notif.title?.toLowerCase().includes(query) ||
-       notif.type?.toLowerCase().includes(query))
-    );
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = notifications.filter(notif => {
+      const title = stripHtml(notif.title || '').toLowerCase();
+      const content = stripHtml(notif.content || '').toLowerCase();
+      const link = (notif.link || '').toLowerCase();
+      
+      return title.includes(query) || 
+             content.includes(query) || 
+             link.includes(query);
+    });
     
     setFilteredNotifications(filtered);
   }, [searchQuery, notifications]);
 
-  // Récupérer les détails d'une notification
-  const fetchNotificationDetails = async (id) => {
+  const fetchNotifications = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        throw new Error('Token non trouvé');
+        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
+        navigation.navigate('Login');
+        return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/afficheNotif/${id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        timeout: 10000 // Timeout de 10 secondes
-      });
-      
+      const response = await Promise.race([
+        fetch(`https://isbadmin.tn/api/getNotifications`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 15000)
+        )
+      ]);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.status === 401) {
+          Alert.alert('Session expirée', 'Veuillez vous reconnecter.');
+          navigation.navigate('Login');
+          return;
+        }
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      return data;
-    } catch (error) {
-      console.log('Error fetching notification details:', error);
       
-      // Gestion d'erreurs plus spécifique
-      if (error.name === 'TypeError' && error.message.includes('Network request failed')) {
-        throw new Error('Problème de connexion réseau');
-      } else if (error.message.includes('timeout')) {
-        throw new Error('Délai d\'attente dépassé');
-      } else if (error.message.includes('401')) {
-        throw new Error('Session expirée, veuillez vous reconnecter');
-      } else {
-        throw new Error(`Erreur lors du chargement: ${error.message}`);
-      }
-    }
-  };
-
-  // Charger les notifications
-  const fetchNotifications = async (loadMore = false) => {
-    if (loadMore) {
-      if (!hasMore || isLoadingMore) return;
-      setIsLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        throw new Error('Token non trouvé');
-      }
-
-      const currentPage = loadMore ? page : 0;
+      let notificationsData = [];
       
-      const response = await fetch(`${API_BASE_URL}/api/getNotifications?index=${currentPage}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        },
-        timeout: 10000
+      if (data.notifications && Array.isArray(data.notifications)) {
+        notificationsData = data.notifications;
+      } else if (Array.isArray(data)) {
+        notificationsData = data;
+      }
+      
+      const formattedNotifications = notificationsData.map((notif, index) => ({
+        id: notif.id || `notif_${index}_${Date.now()}`,
+        title: notif.title || 'Notification',
+        content: notif.text || notif.content || '',
+        type: 'general',
+        date: notif.date || notif.created_at || new Date().toISOString(),
+        etat: notif.etat || 0,
+        priority: notif.priority || 'normal',
+        link: notif.link || null
+      }));
+      
+      // Trier par date (plus récent en premier)
+      formattedNotifications.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      setNotifications(formattedNotifications);
+      
+      // AFFICHER LES NOTIFICATIONS DANS LA CONSOLE
+      console.log("=== NOTIFICATIONS RECEIVED ===");
+      console.log("Nombre total de notifications:", formattedNotifications.length);
+      console.log("Notifications non lues:", formattedNotifications.filter(n => n.etat === 0).length);
+      console.log("Détail des notifications:");
+      formattedNotifications.forEach((notif, index) => {
+        console.log(`\n--- Notification ${index + 1} ---`);
+        console.log("ID:", notif.id);
+        console.log("Titre:", notif.title);
+        console.log("Contenu:", notif.content);
+        console.log("Date:", notif.date);
+        console.log("État:", notif.etat === 0 ? "Non lu" : "Lu");
+        console.log("Priorité:", notif.priority);
+        console.log("Lien:", notif.link || "Aucun");
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      const newNotifications = data.notifications || [];
-
-      setNotifications(prev => 
-        loadMore ? [...prev, ...newNotifications] : newNotifications
-      );
+      console.log("==============================");
       
-      setHasMore(newNotifications.length === 5);
-      if (loadMore) setPage(p => p + 1);
+      const unreadCount = formattedNotifications.filter(n => n.etat === 0).length;
+      setUnreadCount(unreadCount);
     } catch (error) {
-      console.log("Fetch notifications error:", error);
-      
-      if (!loadMore) {
-        Alert.alert(
-          'Erreur', 
-          error.message.includes('Network request failed') 
-            ? 'Problème de connexion. Vérifiez votre connexion internet.' 
-            : 'Impossible de charger les notifications'
-        );
-      }
-    } finally {
-      setLoading(false);
-      setIsLoadingMore(false);
+      console.error("Fetch notifications error:", error);
+      Alert.alert('Erreur', 'Impossible de charger les notifications');
     }
   };
 
-  // Rafraîchir les notifications
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    setPage(0);
     setExpandedIds(new Set());
-    setFullTexts({});
     await fetchNotifications();
     setRefreshing(false);
-  };
+  }, []);
 
-  // Charger plus de notifications
-  const handleLoadMore = () => {
-    if (!searchQuery && hasMore) {
-      fetchNotifications(true);
-    }
-  };
-
-  // Développer/réduire une notification
-  const toggleExpand = async (id) => {
-    if (expandedIds.has(id)) {
-      setExpandedIds(prev => {
-        const newSet = new Set(prev);
+  const toggleExpand = useCallback((id) => {
+    setExpandedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
         newSet.delete(id);
-        return newSet;
-      });
-      return;
-    }
-
-    if (fullTexts[id]) {
-      setExpandedIds(prev => new Set(prev.add(id)));
-      return;
-    }
-
-    setLoadingExpand(prev => new Set(prev.add(id)));
-    
-    try {
-      const details = await fetchNotificationDetails(id);
-      
-      if (details && details.text) {
-        setFullTexts(prev => ({ ...prev, [id]: details.text }));
-        setNotifications(prev => prev.map(notif => 
-          notif.id === id ? { ...notif, etat: 1 } : notif
-        ));
-        setExpandedIds(prev => new Set(prev.add(id)));
       } else {
-        Alert.alert('Information', 'Aucun détail supplémentaire disponible');
+        newSet.add(id);
       }
-    } catch (error) {
-      console.log("Error expanding notification:", error);
-      Alert.alert('Erreur', error.message || 'Impossible de charger les détails');
-    } finally {
-      setLoadingExpand(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(id);
-        return newSet;
-      });
-    }
-  };
+      return newSet;
+    });
+  }, []);
 
-  // Rendu d'une notification
-  const renderItem = ({ item }) => {
+  // Barre de recherche - OPTIMISÉE
+  const SearchBar = useCallback(() => (
+    <View style={styles.searchContainer}>
+      <View style={styles.searchInputContainer}>
+        <View style={styles.searchIconWrapper}>
+          <Ionicons name="search" size={20} color="#2738a5ff" />
+        </View>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Rechercher dans les notifications..."
+          placeholderTextColor="#A1A1AA"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          autoCorrect={false}
+          autoCapitalize="none"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity 
+            style={styles.clearSearchBtn}
+            onPress={() => setSearchQuery('')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle" size={20} color="#A1A1AA" />
+          </TouchableOpacity>
+        )}
+      </View>
+      
+      {searchQuery.length > 0 && (
+        <View style={styles.searchResultsIndicator}>
+          <Text style={styles.searchResultsText}>
+            {filteredNotifications.length} résultat{filteredNotifications.length > 1 ? 's' : ''} trouvé{filteredNotifications.length > 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
+    </View>
+  ), [searchQuery, filteredNotifications.length]);
+
+  // Rendu des notifications - OPTIMISÉ
+  const renderNotification = useCallback(({ item, index }) => {
     const isExpanded = expandedIds.has(item.id);
-    const isLoadingDetails = loadingExpand.has(item.id);
     const icon = getNotificationIcon(item.title);
-    const color = getNotificationColor(item.title);
-    const fullText = fullTexts[item.id] || item.text || item.title || '';
-    const displayText = stripHtml(fullText);
-    const shortText = displayText.substring(0, 15);
-    const showExpand = displayText.length > 15 || (item.text && item.text.length > 15);
+    const cleanTitle = stripHtml(item.title || 'Sans titre');
+    const cleanContent = stripHtml(item.content || '');
+    const wordCount = getWordCount(cleanContent);
+    const isLongContent = wordCount > 30 || cleanContent.length > 200;
     const isRead = item.etat === 1;
+    const shouldShowExpand = isLongContent;
+
+    // Déterminer la couleur de l'icône selon le type
+    const getIconColor = () => {
+      if (item.priority === 'high') return '#EF4444';
+      if (cleanTitle.toLowerCase().includes('validation') || cleanTitle.toLowerCase().includes('approuvé')) return '#10B981';
+      if (cleanTitle.toLowerCase().includes('rejet') || cleanTitle.toLowerCase().includes('refus')) return '#EF4444';
+      if (cleanTitle.toLowerCase().includes('urgent')) return '#F59E0B';
+      return '#2738a5ff';
+    };
+
+    const iconColor = getIconColor();
 
     return (
-      <Animated.View 
-        style={[
-          styles.card,
-          {
-            opacity: cardsAnim,
-            transform: [{
-              translateY: cardsAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0]
-              })
-            }]
-          }
-        ]}
-      >
-        <LinearGradient
-          colors={['rgba(255,255,255,0.98)', 'rgba(255,255,255,1)']}
-          style={styles.cardGradient}
-        />
-        
-        <View style={[styles.statusBar, { backgroundColor: color }]} />
-        
-        <View style={styles.cardHeader}>
-          <View style={[styles.icon, { backgroundColor: `${color}20` }]}>
-            <Ionicons name={icon} size={20} color={color} />
-          </View>
+      <View style={[styles.notificationCard, !isRead && styles.unreadCard]}>
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onPress={() => shouldShowExpand && toggleExpand(item.id)}
+          style={styles.cardTouchable}
+        >
+          {/* Indicateur de statut */}
+          {!isRead && <View style={[styles.unreadIndicator, { backgroundColor: iconColor }]} />}
           
-          <View style={styles.headerText}>
-            <Text 
-              style={[
-                styles.title,
-                isRead ? styles.readTitle : styles.unreadTitle
-              ]}
-              numberOfLines={2}
-            >
-              {stripHtml(item.title) || 'Notification sans titre'}
-            </Text>
-            <View style={styles.meta}>
-              <Text style={styles.metaText}>{formatTime(item.date)}</Text>
-              <Text style={styles.metaText}>•</Text>
-              <Text style={styles.metaText}>{formatDate(item.date)}</Text>
-              {item.type && (
-                <>
-                  <Text style={styles.metaText}>•</Text>
-                  <Text style={styles.metaText}>{item.type}</Text>
-                </>
+          {/* En-tête de la notification */}
+          <View style={styles.notifHeader}>
+            <View style={[styles.iconCircle, { backgroundColor: iconColor }]}>
+              <Ionicons name={icon} size={22} color="#FFFFFF" />
+            </View>
+            
+            <View style={styles.notifHeaderText}>
+              <Text style={[styles.notifTitle, !isRead && styles.unreadNotifTitle]} numberOfLines={2}>
+                {cleanTitle}
+              </Text>
+              <Text style={styles.notifDate}>
+                {formatDate(item.date)}
+              </Text>
+            </View>
+            
+            {item.priority === 'high' && (
+              <View style={styles.urgentBadge}>
+                <Ionicons name="warning" size={16} color="#FFFFFF" />
+              </View>
+            )}
+          </View>
+
+          {/* Contenu de la notification */}
+          {cleanContent && (
+            <View style={styles.notifContent}>
+              {isExpanded ? (
+                <View style={styles.expandedContentContainer}>
+                  <ScrollView 
+                    style={styles.fullContentScroll}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={isLongContent}
+                    contentContainerStyle={styles.scrollContent}
+                  >
+                    <RenderTextWithLinks 
+                      text={cleanContent}
+                      style={styles.fullContentText}
+                    />
+                  </ScrollView>
+            
+                </View>
+              ) : (
+                <View>
+                  <RenderTextWithLinks 
+                    text={cleanContent.length > 120 ? cleanContent.substring(0, 120) + '...' : cleanContent}
+                    style={styles.previewText}
+                    numberOfLines={3}
+                  />
+            
+                </View>
               )}
             </View>
-          </View>
-        </View>
+          )}
 
-        <ScrollView 
-          style={styles.contentScroll}
-          nestedScrollEnabled
-          scrollEnabled={isExpanded}
-        >
-          <RenderTextWithLinks 
-            text={isExpanded || !showExpand ? displayText : `${shortText}...`}
-            style={styles.content}
-          />
-        </ScrollView>
+          {/* Lien si disponible */}
+          {item.link && (
+            <TouchableOpacity 
+              style={styles.linkContainer}
+              onPress={() => {
+                Alert.alert(
+                  'Ouvrir le lien',
+                  'Voulez-vous ouvrir ce lien externe ?',
+                  [
+                    { text: 'Annuler', style: 'cancel' },
+                    { 
+                      text: 'Ouvrir', 
+                      onPress: () => Linking.openURL(item.link).catch(() => 
+                        Alert.alert('Erreur', 'Impossible d\'ouvrir le lien')
+                      )
+                    }
+                  ]
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="link-outline" size={16} color="#2738a5ff" />
+              <Text style={styles.linkText} numberOfLines={1}>
+                Ouvrir le lien
+              </Text>
+              <Ionicons name="open-outline" size={14} color="#2738a5ff" />
+            </TouchableOpacity>
+          )}
 
-        {showExpand && (
-          <TouchableOpacity 
-            style={[styles.expandButton, { borderColor: `${color}20` }]}
-            onPress={() => toggleExpand(item.id)}
-            disabled={isLoadingDetails}
-          >
-            {isLoadingDetails ? (
-              <>
-                <ActivityIndicator size="small" color={color} />
-                <Text style={[styles.expandText, { color, marginLeft: 8 }]}>
-                  Chargement...
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.expandText, { color }]}>
-                  {isExpanded ? 'Voir moins' : 'Voir plus'}
+          {/* Actions */}
+          {shouldShowExpand && (
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity 
+                style={styles.expandBtn}
+                onPress={() => toggleExpand(item.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.expandBtnText}>
+                  {isExpanded ? 'Réduire' : 'Lire plus'}
                 </Text>
                 <Ionicons 
                   name={isExpanded ? "chevron-up" : "chevron-down"} 
                   size={16} 
-                  color={color} 
+                  color="#2738a5ff" 
                 />
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-      </Animated.View>
-    );
-  };
-
-  // Rendu d'un groupe de notifications par date
-  const renderGroup = ({ item: group }) => (
-    <View style={styles.group} key={group.dateKey}>
-      <View style={styles.groupHeader}>
-        <Ionicons name="calendar" size={16} color="#3B82F6" style={styles.calendarIcon} />
-        <Text style={styles.groupTitle}>{group.dateLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
-      {group.notifications.map((item, index) => (
-        <View key={`${item.id}_${index}`} style={styles.itemContainer}>
-          {renderItem({ item })}
-        </View>
-      ))}
-    </View>
-  );
+    );
+  }, [expandedIds, toggleExpand]);
 
-  // Rendu quand il n'y a pas de notifications
-  const renderEmpty = () => (
-    <View style={styles.empty}>
-      <Ionicons 
-        name={searchQuery ? "search-outline" : "notifications-off-outline"} 
-        size={48} 
-        color="#CBD5E1" 
-      />
+  // État vide - OPTIMISÉ
+  const EmptyState = useCallback(() => (
+    <View style={styles.emptyContainer}>
+      <LinearGradient
+        colors={['#F8FAFC', '#F1F5F9']}
+        style={styles.emptyIconContainer}
+      >
+        <Ionicons 
+          name={searchQuery ? "search-outline" : "notifications-off-outline"} 
+          size={48} 
+          color="#2738a5ff" 
+        />
+      </LinearGradient>
+      
       <Text style={styles.emptyTitle}>
         {searchQuery ? "Aucun résultat trouvé" : "Aucune notification"}
       </Text>
-      <Text style={styles.emptyText}>
+      
+      <Text style={styles.emptySubtitle}>
         {searchQuery 
           ? `Aucune notification ne correspond à "${searchQuery}"`
-          : "Vous n'avez pas de nouvelles notifications pour le moment."
+          : "Vous n'avez pas de nouvelles notifications pour le moment"
         }
       </Text>
+      
       {searchQuery && (
         <TouchableOpacity 
           style={styles.clearSearchButton}
           onPress={() => setSearchQuery('')}
+          activeOpacity={0.8}
         >
-          <Text style={styles.clearSearchText}>Effacer la recherche</Text>
+          <Text style={styles.clearSearchButtonText}>Effacer la recherche</Text>
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [searchQuery]);
 
-  const groupedData = groupNotificationsByDate(filteredNotifications);
+  const keyExtractor = useCallback((item) => item.id.toString(), []);
+
+  const ItemSeparatorComponent = useCallback(() => <View style={styles.separator} />, []);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View style={styles.container}>
       <Header title="Notifications" withBackButton />
 
       <DynamicHeader 
         title="Mes notifications"
-        subtitle="Gestion des demandes administratives"
-        iconName="file-document-multiple"
+        subtitle={`Gestion des demandes administratives`}
+        iconName="bell-outline"
         userInfo={userInfo}
-        slideAnim={slideAnim}
       />
 
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          {
-            opacity: searchAnim,
-            transform: [{
-              translateY: searchAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-30, 0]
-              })
-            }]
-          }
-        ]}
-      >
-        <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher des notifications..."
-            placeholderTextColor="#94A3B8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity 
-              style={styles.clearButton}
-              onPress={() => setSearchQuery('')}
-            >
-              <Ionicons name="close-circle" size={20} color="#94A3B8" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </Animated.View>
+      <SearchBar />
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <View style={styles.loadingSpinner}>
+            <ActivityIndicator size="large" color="#2738a5ff" />
+          </View>
           <Text style={styles.loadingText}>Chargement des notifications...</Text>
         </View>
       ) : (
         <FlatList
-          data={groupedData}
-          renderItem={renderGroup}
-          keyExtractor={(group) => group.dateKey}
-          contentContainerStyle={styles.listContent}
+          data={filteredNotifications}
+          renderItem={renderNotification}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={[
+            styles.listContainer,
+            filteredNotifications.length === 0 && styles.emptyListContainer
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={["#3B82F6"]}
-              tintColor="#3B82F6"
+              colors={["#2738a5ff"]}
+              tintColor="#2738a5ff"
+              title="Actualisation..."
+              titleColor="#2738a5ff"
             />
           }
-          ListEmptyComponent={renderEmpty}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isLoadingMore ? (
-              <View style={styles.footer}>
-                <ActivityIndicator size="small" color="#3B82F6" />
-                <Text style={styles.footerText}>Chargement...</Text>
-              </View>
-            ) : null
-          }
+          ListEmptyComponent={EmptyState}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={ItemSeparatorComponent}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          initialNumToRender={6}
+          getItemLayout={(data, index) => ({
+            length: 200,
+            offset: 216 * index,
+            index,
+          })}
         />
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
-// Styles
+// Styles - OPTIMISÉS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAFAFA',
   },
+  
+  // Styles de la barre de recherche
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
   },
-  searchWrapper: {
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+    borderWidth: 2,
+    borderColor: '#F1F5F9',
   },
-  searchIcon: {
-    marginRight: 10,
+  searchIconWrapper: {
+    marginRight: 12,
+    padding: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#1E293B',
+    fontSize: 16,
+    color: '#18181B',
     fontWeight: '500',
+    paddingVertical: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  clearButton: {
-    marginLeft: 8,
+  clearSearchBtn: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
   },
-  listContent: {
+  searchResultsIndicator: {
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  searchResultsText: {
+    fontSize: 13,
+    color: '#71717A',
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+  
+  // Styles de la liste
+  listContainer: {
+    paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  group: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+  emptyListContainer: {
+    flexGrow: 1,
   },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+  separator: {
+    height: 16,
   },
-  calendarIcon: {
-    marginRight: 10,
-  },
-  groupTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  itemContainer: {
-    marginBottom: 12,
-  },
-  card: {
+  
+  // Styles des cartes de notification
+  notificationCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 0,
   },
-  cardGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  unreadCard: {
+    borderColor: '#E0E7FF',
+    backgroundColor: '#FEFFFE',
   },
-  statusBar: {
+  cardTouchable: {
+    position: 'relative',
+  },
+  unreadIndicator: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 4,
+    zIndex: 1,
   },
-  cardHeader: {
+  
+  // Styles de l'en-tête de notification
+  notifHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 16,
   },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
-  headerText: {
+  notifHeaderText: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  unreadTitle: {
+  notifTitle: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#71717A',
+    lineHeight: 22,
+    marginBottom: 4,
+  },
+  unreadNotifTitle: {
+    color: '#18181B',
     fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
   },
-  readTitle: {
-    fontSize: 16,
+  notifDate: {
+    fontSize: 13,
+    color: '#A1A1AA',
     fontWeight: '500',
-    color: '#64748B',
-    marginBottom: 4,
   },
-  meta: {
-    flexDirection: 'row',
+  urgentBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
-  metaText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginRight: 8,
+  
+  // Styles du contenu
+  notifContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
-  contentScroll: {
-    maxHeight: 200,
-    marginBottom: 12,
+  expandedContentContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
-  content: {
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
+  previewText: {
+    fontSize: 15,
+    color: '#52525B',
+    lineHeight: 22,
   },
-  linkText: {
-    color: '#3B82F6',
+  fullContentScroll: {
+    maxHeight: 300,
+  },
+  scrollContent: {
+    paddingBottom: 8,
+  },
+  fullContentText: {
+    fontSize: 15,
+    color: '#374151',
+    lineHeight: 24,
+    textAlign: 'left',
+  },
+  linkTextInContent: {
+    color: '#2738a5ff',
     textDecorationLine: 'underline',
     fontWeight: '600',
   },
-  expandButton: {
+  
+  // Styles des actions
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  
+  },
+  expandBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
     borderWidth: 1,
-    alignSelf: 'center',
+    borderColor: '#E2E8F0',
   },
-  expandText: {
+  expandBtnText: {
     fontSize: 14,
+    color: '#2738a5ff',
     fontWeight: '600',
     marginRight: 6,
   },
-  empty: {
+  
+  // Styles des liens
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    marginTop: 8,
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 20,
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  linkText: {
+    color: '#2738a5ff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+    marginRight: 8,
+    flex: 1,
+  },
+  
+  // Styles de l'état vide
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+    minHeight: height * 0.5,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#18181B',
+    marginBottom: 8,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#71717A',
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 280,
   },
   clearSearchButton: {
-    marginTop: 20,
+    marginTop: 24,
+    backgroundColor: '#2738a5ff',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
+    borderRadius: 25,
   },
-  clearSearchText: {
+  clearSearchButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
+  
+  // Styles de chargement
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+  },
+  loadingSpinner: {
+    marginBottom: 16,
   },
   loadingText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 16,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginLeft: 8,
+    fontSize: 16,
+    color: '#71717A',
+    fontWeight: '500',
   },
 });
 

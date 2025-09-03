@@ -19,7 +19,7 @@ const SplashScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Image
-        source={require('../assets/isb.png')}
+        source={require('../assets/isbfont.png')}
         style={styles.logo}
         resizeMode="contain"
       />
@@ -38,8 +38,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   logo: {
-    width: width * 0.6, // 60% de la largeur de l'écran
-    height: width * 0.6, // même proportion en hauteur
+    width: width * 0.8, 
+    height: width * 0.8, 
   },
   spinner: {
     marginTop: 20,

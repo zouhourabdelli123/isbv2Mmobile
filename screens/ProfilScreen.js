@@ -15,21 +15,33 @@ import {
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DynamicHeader from './header';
 import Header from '../components/Header';
-import { BASE_URL_APP } from '../api.js';
 import Loading from '../components/loading.js';
 
 const { width } = Dimensions.get('window');
 
-export default function RequestScreen({ navigation }) {
+// Couleurs du thème ISB
+const ISB_COLORS = {
+  primary: '#1B4F8C', // Bleu principal ISB
+  secondary: '#2E5BA8', // Bleu secondaire
+  accent: '#F9A825', // Jaune/Orange ISB
+  white: '#FFFFFF',
+  lightBlue: '#E3F2FD',
+  darkBlue: '#0D47A1',
+  gray: '#6B7280',
+  lightGray: '#F5F5F5',
+  success: '#4CAF50',
+  warning: '#FF9800',
+  error: '#F44336',
+  background: '#FAFAFA',
+};
+
+export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [slideAnim] = useState(new Animated.Value(0));
   const [cardsAnim] = useState(new Animated.Value(0));
   const [profileAnim] = useState(new Animated.Value(0));
-  const [scaleAnim] = useState(new Animated.Value(0.9));
-  const [userInfo, setUserInfo] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [academicYear, setAcademicYear] = useState('');
@@ -46,13 +58,27 @@ export default function RequestScreen({ navigation }) {
     return currentDate.toLocaleDateString('fr-FR', options);
   };
 
+  // Fonction pour formater la date de naissance
+  const formatBirthDate = (dateString) => {
+    if (!dateString) return 'Non spécifié';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   // Fonction pour calculer l'année académique
   const calculateAcademicYear = (date) => {
     const currentYear = date.getFullYear();
     const currentMonth = date.getMonth(); // 0-11
     
-    // Si nous sommes entre septembre et décembre, l'année académique commence cette année
-    // Sinon, elle a commencé l'année précédente
     if (currentMonth >= 8) { // Septembre = 8
       return `${currentYear}/${currentYear + 1}`;
     } else {
@@ -66,7 +92,7 @@ export default function RequestScreen({ navigation }) {
       const now = new Date();
       setCurrentDate(now);
       setAcademicYear(calculateAcademicYear(now));
-    }, 1000); // Mise à jour chaque seconde
+    }, 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -81,8 +107,6 @@ export default function RequestScreen({ navigation }) {
         return null;
       }
 
-      console.log('[fetchProfileFromAPI] Appel API avec token:', token);
-
       const response = await fetch(`https://isbadmin.tn/api/getProfile`, {
         method: 'GET',
         headers: {
@@ -91,8 +115,6 @@ export default function RequestScreen({ navigation }) {
           'Accept': 'application/json',
         },
       });
-
-      console.log('[fetchProfileFromAPI] Status de la réponse:', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -103,8 +125,7 @@ export default function RequestScreen({ navigation }) {
       }
 
       const data = await response.json();
-      console.log('[fetchProfileFromAPI] Données reçues:', data);
-
+      
       if (data.etudiant) {
         return data.etudiant;
       } else {
@@ -112,7 +133,7 @@ export default function RequestScreen({ navigation }) {
       }
 
     } catch (error) {
-      console.log('[fetchProfileFromAPI] Erreur:', error.message);
+      console.log('Erreur fetchProfile:', error.message);
       
       if (error.message.includes('Network')) {
         Alert.alert('Erreur de connexion', 'Vérifiez votre connexion internet');
@@ -127,29 +148,16 @@ export default function RequestScreen({ navigation }) {
   };
 
   const fetchUserInfo = async () => {
-    console.log('[fetchUserInfo] Début de la récupération des informations utilisateur...');
     setLoading(true);
     
     try {
-      // Récupérer les données locales d'abord
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        setUserInfo(JSON.parse(userData));
-      }
-
-      // Ensuite récupérer les données depuis l'API
       const profileFromAPI = await fetchProfileFromAPI();
       
       if (profileFromAPI) {
         setProfileData(profileFromAPI);
         
-        // Optionnel: mettre à jour les données locales avec les nouvelles données
-        const updatedUserData = {
-          ...JSON.parse(userData || '{}'),
-          ...profileFromAPI
-        };
-        await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
-        setUserInfo(updatedUserData);
+        // Mettre à jour les données locales
+        await AsyncStorage.setItem('userData', JSON.stringify(profileFromAPI));
       }
 
       // Animations séquentielles
@@ -172,7 +180,7 @@ export default function RequestScreen({ navigation }) {
       ]).start();
 
     } catch (error) {
-      console.log('[fetchUserInfo] Erreur:', error.message);
+      console.log('Erreur fetchUserInfo:', error.message);
       Alert.alert('Erreur', 'Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -183,14 +191,9 @@ export default function RequestScreen({ navigation }) {
   // Fonction pour nettoyer les données utilisateur
   const clearUserData = async () => {
     try {
-      await AsyncStorage.multiRemove([
-        'userToken',
-        'userData',
-        'userInfo',
-      ]);
-      console.log('[clearUserData] Données utilisateur supprimées');
+      await AsyncStorage.multiRemove(['userToken', 'userData']);
     } catch (error) {
-      console.log('[clearUserData] Erreur lors du nettoyage:', error);
+      console.log('Erreur clearUserData:', error);
     }
   };
 
@@ -200,10 +203,7 @@ export default function RequestScreen({ navigation }) {
       'Déconnexion',
       'Êtes-vous sûr de vouloir vous déconnecter ?',
       [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
+        { text: 'Annuler', style: 'cancel' },
         {
           text: 'Déconnexion',
           style: 'destructive',
@@ -215,103 +215,26 @@ export default function RequestScreen({ navigation }) {
               
               if (!token) {
                 await clearUserData();
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
                 return;
               }
-
-              console.log('[handleLogout] Appel API logout avec token:', token);
 
               const response = await fetch(`https://isbadmin.tn/api/logout`, {
                 method: 'GET',
                 headers: {
                   'Authorization': `Bearer ${token}`,
                   'Content-Type': 'application/json',
-                  'Accept': 'application/json',
                 },
               });
 
-              console.log('[handleLogout] Status de la réponse:', response.status);
-
-              if (response.status === 200) {
-                console.log('[handleLogout] Logout réussi');
-                await clearUserData();
-                
-                Alert.alert(
-                  'Déconnexion réussie',
-                  'Vous avez été déconnecté avec succès',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ name: 'Login' }],
-                        });
-                      }
-                    }
-                  ]
-                );
-
-              } else if (response.status === 401) {
-                console.log('[handleLogout] Token invalide, nettoyage des données');
-                await clearUserData();
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
-
-              } else {
-                const errorData = await response.json().catch(() => ({}));
-                console.log('[handleLogout] Erreur:', response.status, errorData);
-                
-                Alert.alert(
-                  'Erreur',
-                  'Une erreur est survenue lors de la déconnexion',
-                  [
-                    {
-                      text: 'Forcer la déconnexion',
-                      onPress: async () => {
-                        await clearUserData();
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ name: 'Login' }],
-                        });
-                      }
-                    },
-                    {
-                      text: 'Annuler',
-                      style: 'cancel'
-                    }
-                  ]
-                );
-              }
+              // Peu importe la réponse de l'API, on nettoie les données locales
+              await clearUserData();
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
 
             } catch (error) {
-              console.log('[handleLogout] Erreur réseau:', error.message);
-              
-              Alert.alert(
-                'Erreur de connexion',
-                'Impossible de contacter le serveur. Voulez-vous forcer la déconnexion ?',
-                [
-                  {
-                    text: 'Forcer la déconnexion',
-                    onPress: async () => {
-                      await clearUserData();
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'Login' }],
-                      });
-                    }
-                  },
-                  {
-                    text: 'Annuler',
-                    style: 'cancel'
-                  }
-                ]
-              );
+              console.log('Erreur logout:', error);
+              await clearUserData();
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
             } finally {
               setLoading(false);
             }
@@ -330,25 +253,13 @@ export default function RequestScreen({ navigation }) {
     fetchUserInfo();
   };
 
-  const handleMakeRequest = () => {
-    navigation.navigate('CreateRequest');
-  };
-
-  const handleTrackRequest = () => {
-    navigation.navigate('TrackRequest');
-  };
-
-  const handleEditProfile = () => {
-    navigation.navigate('EditProfile');
-  };
-
   if (loading) {
     return <Loading />;
   }
 
   return (
     <View style={styles.container}>
-      <Header title="Profile" withBackButton />
+      <Header title="Profil Étudiant" withBackButton />
       
       <ScrollView
         style={styles.scrollView}
@@ -357,14 +268,12 @@ export default function RequestScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#1E40AF']}
-            tintColor="#1E40AF"
-            progressBackgroundColor="white"
+            colors={[ISB_COLORS.primary]}
+            tintColor={ISB_COLORS.primary}
           />
         }
-        bounces={true}
       >
-        {/* Hero Section Amélioré */}
+        {/* Hero Section avec design ISB */}
         <Animated.View 
           style={[
             styles.heroSection,
@@ -380,13 +289,24 @@ export default function RequestScreen({ navigation }) {
           ]}
         >
           <LinearGradient
-            colors={['#1E3A8A', '#3B82F6']}
+            colors={[ISB_COLORS.primary, ISB_COLORS.secondary, ISB_COLORS.darkBlue]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroGradient}
           >
+            {/* Éléments décoratifs inspirés du logo ISB */}
+            <View style={styles.decorativeElements}>
+              <View style={[styles.decorativeCircle, { backgroundColor: ISB_COLORS.accent + '20' }]} />
+              <View style={[styles.decorativeSquare, { backgroundColor: ISB_COLORS.accent + '10' }]} />
+            </View>
+
             <View style={styles.heroContent}>
-              {/* Photo de profil avec effet de pulsation */}
+              {/* Logo ISB en arrière-plan */}
+              <View style={styles.logoBackground}>
+                <MaterialIcons name="school" size={100} color={ISB_COLORS.accent + '30'} />
+              </View>
+
+              {/* Photo de profil avec design ISB */}
               <Animated.View 
                 style={[
                   styles.profileImageContainer,
@@ -408,13 +328,13 @@ export default function RequestScreen({ navigation }) {
                   />
                 ) : (
                   <View style={styles.defaultProfileImage}>
-                    <MaterialIcons name="person" size={60} color="white" />
+                    <MaterialIcons name="person" size={60} color={ISB_COLORS.white} />
                   </View>
                 )}
                 <View style={styles.profileImageBadge}>
-                  <MaterialIcons name="verified" size={18} color="#10B981" />
+                  <MaterialIcons name="verified" size={18} color={ISB_COLORS.success} />
                 </View>
-                <View style={styles.profileImageGlow} />
+                <View style={[styles.profileImageGlow, { backgroundColor: ISB_COLORS.accent + '20' }]} />
               </Animated.View>
 
               {profileData && (
@@ -432,31 +352,26 @@ export default function RequestScreen({ navigation }) {
                     }
                   ]}
                 >
+                  <View style={styles.isbBranding}>
+                    <Text style={styles.isbLabel}>ISB STUDENT</Text>
+                  </View>
+                  
                   <Text style={styles.heroName}>
-                    {profileData.nom} {profileData.prenom}
+                    {profileData.prenom} {profileData.nom}
                   </Text>
                   
-                  <Text style={styles.heroYear}>
-                    📚 Année académique {profileData.annee}
+                  <Text style={styles.heroCode}>
+                    Code étudiant: {profileData.code_etudiant}
                   </Text>
                   
-                  {/* Section des dates en temps réel */}
+                  {/* Section des dates en temps réel avec design ISB */}
                   <View style={styles.dateContainer}>
                     <View style={styles.dateItem}>
-                      <MaterialIcons name="schedule" size={16} color="rgba(255, 255, 255, 0.9)" />
+                      <MaterialIcons name="event" size={16} color={ISB_COLORS.accent} />
                       <Text style={styles.dateText}>
                         {formatCurrentDate()}
                       </Text>
                     </View>
-                    
-                    <View style={styles.dateItem}>
-                      <MaterialIcons name="event" size={16} color="rgba(255, 255, 255, 0.9)" />
-                      <Text style={styles.dateText}>
-                        Année académique: {academicYear}
-                      </Text>
-                    </View>
-                    
-        
                   </View>
                 </Animated.View>
               )}
@@ -464,6 +379,25 @@ export default function RequestScreen({ navigation }) {
           </LinearGradient>
         </Animated.View>
 
+        {/* Section Informations Personnelles */}
+        <Animated.View 
+          style={[
+            styles.profileSection,
+            {
+              opacity: profileAnim,
+              transform: [{
+                translateY: profileAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0]
+                })
+              }]
+            }
+          ]}
+        >
+  
+        </Animated.View>
+
+        {/* Section Informations Académiques */}
         <Animated.View 
           style={[
             styles.profileSection,
@@ -482,54 +416,60 @@ export default function RequestScreen({ navigation }) {
             <View style={styles.infoCard}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardHeaderLeft}>
-                  <View style={styles.cardIconContainer}>
-                    <MaterialIcons name="school" size={24} color="#3B82F6" />
+                  <View style={[styles.cardIconContainer, { backgroundColor: ISB_COLORS.lightBlue }]}>
+                    <MaterialIcons name="school" size={24} color={ISB_COLORS.primary} />
                   </View>
                   <View>
                     <Text style={styles.cardTitle}>Informations Académiques</Text>
-                    <Text style={styles.cardSubtitle}>Détails de votre profil étudiant</Text>
+                    <Text style={styles.cardSubtitle}>International School of Business</Text>
                   </View>
                 </View>
               </View>
 
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <View style={[styles.infoIcon, { backgroundColor: '#EEF2FF' }]}>
-                    <MaterialIcons name="person-outline" size={22} color="#3B82F6" />
+                  <View style={[styles.infoIcon, { backgroundColor: '#EFF6FF' }]}>
+                    <MaterialIcons name="calendar-today" size={22} color={ISB_COLORS.primary} />
                   </View>
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Nom complet</Text>
+                    <Text style={styles.infoLabel}>Année académique</Text>
                     <Text style={styles.infoValue}>
-                      {profileData.nom} {profileData.prenom}
+                      {profileData.year || 'Non spécifié'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoItem}>
+                  <View style={[styles.infoIcon, { backgroundColor: '#F0F9FF' }]}>
+                    <MaterialIcons name="class" size={22} color={ISB_COLORS.secondary} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Niveau</Text>
+                    <Text style={styles.infoValue}>
+                      {profileData.niveau ? `${profileData.niveau}ème année` : 'Non spécifié'}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.infoItem}>
                   <View style={[styles.infoIcon, { backgroundColor: '#F0FDF4' }]}>
-                    <MaterialIcons name="calendar-today" size={22} color="#16A34A" />
+                    <MaterialIcons name="workspaces" size={22} color={ISB_COLORS.success} />
                   </View>
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Année académique</Text>
-                    <Text style={styles.infoValue}>{profileData.annee}</Text>
+                    <Text style={styles.infoLabel}>Spécialité</Text>
+                    <Text style={styles.infoValue}>
+                      {profileData.specialite || 'Non spécifié'}
+                    </Text>
                   </View>
                 </View>
 
-                <View style={styles.infoItem}>
-                  <View style={[styles.infoIcon, { backgroundColor: '#FEF3C7' }]}>
-                    <MaterialIcons name="grade" size={22} color="#D97706" />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Niveau d'études</Text>
-                    <Text style={styles.infoValue}>{profileData.id_niveau}éme Année</Text>
-                  </View>
-                </View>
+          
               </View>
             </View>
           )}
         </Animated.View>
 
-        {/* Section Actions Améliorée */}
+        {/* Section Paramètres */}
         <Animated.View 
           style={[
             styles.profileSection,
@@ -544,12 +484,11 @@ export default function RequestScreen({ navigation }) {
             }
           ]}
         >
-          {/* Menu d'actions secondaires */}
           <View style={styles.actionsCard}>
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderLeft}>
-                <View style={styles.cardIconContainer}>
-                  <MaterialIcons name="settings" size={24} color="#6366F1" />
+                <View style={[styles.cardIconContainer, { backgroundColor: '#F0F4F8' }]}>
+                  <MaterialIcons name="settings" size={24} color={ISB_COLORS.gray} />
                 </View>
                 <View>
                   <Text style={styles.cardTitle}>Paramètres</Text>
@@ -567,14 +506,14 @@ export default function RequestScreen({ navigation }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.actionButtonLeft}>
-                  <View style={[styles.actionIcon, { backgroundColor: '#FEF2F2' }]}>
-                    <MaterialIcons name="logout" size={20} color="#EF4444" />
+                  <View style={[styles.actionIcon, { backgroundColor: '#FFEBEE' }]}>
+                    <MaterialIcons name="logout" size={20} color={ISB_COLORS.error} />
                   </View>
-                  <Text style={[styles.actionButtonTextSecondary, { color: '#EF4444' }]}>
+                  <Text style={[styles.actionButtonTextSecondary, { color: ISB_COLORS.error }]}>
                     Se déconnecter
                   </Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={24} color="#EF4444" />
+                <MaterialIcons name="chevron-right" size={24} color={ISB_COLORS.error} />
               </TouchableOpacity>
             </View>
           </View>
@@ -590,24 +529,13 @@ export default function RequestScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#F8FAFC' 
+    backgroundColor: ISB_COLORS.background 
   },
   scrollView: {
     flex: 1,
   },
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  loadingText: { 
-    marginTop: 10, 
-    fontSize: 16, 
-    color: '#6B7280',
-    fontWeight: '500'
-  },
 
-  // Hero Section Amélioré
+  // Hero Section avec design ISB
   heroSection: {
     marginBottom: 20,
     overflow: 'hidden',
@@ -618,23 +546,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     position: 'relative',
   },
-  decorativeCircle1: {
+  decorativeElements: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  decorativeCircle: {
     position: 'absolute',
     top: -50,
     right: -50,
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  decorativeCircle2: {
+  decorativeSquare: {
     position: 'absolute',
     bottom: -30,
     left: -30,
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    transform: [{ rotate: '45deg' }],
+  },
+  logoBackground: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    opacity: 0.3,
   },
   heroContent: {
     alignItems: 'center',
@@ -648,8 +588,8 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    borderWidth: 5,
-    borderColor: 'white',
+    borderWidth: 4,
+    borderColor: ISB_COLORS.accent,
   },
   defaultProfileImage: {
     width: 120,
@@ -658,14 +598,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 5,
-    borderColor: 'white',
+    borderWidth: 4,
+    borderColor: ISB_COLORS.accent,
   },
   profileImageBadge: {
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: 'white',
+    backgroundColor: ISB_COLORS.white,
     borderRadius: 18,
     width: 36,
     height: 36,
@@ -684,48 +624,42 @@ const styles = StyleSheet.create({
     right: -10,
     bottom: -10,
     borderRadius: 70,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     zIndex: -1,
   },
   heroInfo: {
     alignItems: 'center',
   },
-  heroName: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: 'white',
+  isbBranding: {
+    backgroundColor: ISB_COLORS.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
     marginBottom: 12,
+  },
+  isbLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: ISB_COLORS.white,
+    letterSpacing: 1,
+  },
+  heroName: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: ISB_COLORS.white,
+    marginBottom: 8,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
-  heroTitleContainer: {
-    marginBottom: 8,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backdropFilter: 'blur(10px)',
-  },
-  heroTitle: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  heroYear: {
+  heroCode: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
     marginBottom: 16,
   },
 
-  // Styles pour les dates en temps réel
+  // Styles pour les dates en temps réel avec design ISB
   dateContainer: {
     alignItems: 'center',
     gap: 8,
@@ -742,33 +676,17 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: ISB_COLORS.white,
     fontWeight: '500',
   },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    marginTop: 4,
-  },
-  timeText: {
-    fontSize: 16,
-    color: 'white',
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
 
-  // Profile Section Amélioré
+  // Profile Section avec design ISB
   profileSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
   infoCard: {
-    backgroundColor: 'white',
+    backgroundColor: ISB_COLORS.white,
     borderRadius: 24,
     padding: 24,
     marginBottom: 20,
@@ -777,6 +695,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: '#F0F4F8',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -792,7 +712,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#F0F9FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -800,21 +719,24 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: ISB_COLORS.primary,
     marginBottom: 2,
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: ISB_COLORS.gray,
     fontWeight: '500',
   },
   infoGrid: {
-    gap: 24,
+    gap: 20,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    backgroundColor: '#FAFBFC',
+    borderRadius: 16,
   },
   infoIcon: {
     width: 48,
@@ -829,47 +751,19 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: ISB_COLORS.gray,
     marginBottom: 4,
     fontWeight: '500',
   },
   infoValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: ISB_COLORS.primary,
   },
 
-  // Quick Actions
-  quickActionsContainer: {
-    marginBottom: 20,
-    gap: 12,
-  },
-  quickActionButton: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  quickActionGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-  },
-  quickActionText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
-    flex: 1,
-    marginLeft: 16,
-  },
-
-  // Actions Section Amélioré
+  // Actions Section avec design ISB
   actionsCard: {
-    backgroundColor: 'white',
+    backgroundColor: ISB_COLORS.white,
     borderRadius: 24,
     padding: 24,
     shadowColor: '#000',
@@ -877,6 +771,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: '#F0F4F8',
   },
   actionButtons: {
     gap: 4,
@@ -886,7 +782,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FAFBFC',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 16,
@@ -908,7 +804,7 @@ const styles = StyleSheet.create({
   actionButtonTextSecondary: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: ISB_COLORS.primary,
   },
   separator: {
     height: 1,

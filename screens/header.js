@@ -8,7 +8,7 @@ const DynamicHeader = ({
   subtitle, 
   iconName, 
   userInfo, 
-  slideAnim,
+  slideAnim = new Animated.Value(1), // Default value added here
   colors = ['#1E3A8A', '#3B82F6', '#60A5FA']
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -109,7 +109,6 @@ const DynamicHeader = ({
           </Animated.View>
         </View>
 
-        {/* Titre avec effet sophistiqué */}
         <View style={styles.titleContainer}>
           <Text style={styles.headerTitle}>{title}</Text>
           <View style={styles.titleUnderline} />
@@ -117,6 +116,7 @@ const DynamicHeader = ({
         
         <Text style={styles.headerSubtitle}>{subtitle}</Text>
 
+ 
       </Animated.View>
     </LinearGradient>
   );
@@ -270,8 +270,6 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     letterSpacing: 0.3,
   },
-
-
 
   headerStats: {
     flexDirection: 'row',
