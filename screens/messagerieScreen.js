@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 import axios from 'axios';
 import DynamicHeader from './header';
 import Header from '../components/Header';
@@ -93,7 +94,7 @@ export default function MessageScreen({ navigation }) {
 
   const fetchUserInfo = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       const userData = await AsyncStorage.getItem('userData');
       
       if (userData) {
@@ -129,7 +130,7 @@ export default function MessageScreen({ navigation }) {
 
   const fetchMessages = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       const response = await axios.get(`https://isbadmin.tn/api/getMessages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -189,7 +190,7 @@ export default function MessageScreen({ navigation }) {
     ]).start();
 
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       const response = await axios.post(
         `https://isbadmin.tn/api/sendMessage`,
         { content: messageText },

@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { shareAsync } from 'expo-sharing';
+import { fetchWithAutoRefresh, getUsableToken } from '../utils/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -74,17 +75,16 @@ export default function HomeScreen() {
 
   const fetchProfileFromAPI = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
 
       if (!token) {
         Alert.alert('Erreur', 'Token d\'authentification manquant');
         return null;
       }
 
-      const response = await fetch(`https://isbadmin.tn/api/getProfile`, {
+      const { response } = await fetchWithAutoRefresh(`https://isbadmin.tn/api/getProfile`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -92,7 +92,7 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          Alert.alert('Session expirée', 'Veuillez vous reconnecter');
+          Alert.alert('Session', 'Impossible de rafraichir la session pour le moment');
           return null;
         }
         throw new Error(`Erreur HTTP: ${response.status}`);

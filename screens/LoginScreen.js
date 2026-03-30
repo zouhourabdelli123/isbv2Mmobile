@@ -22,6 +22,7 @@ import { BASE_URL_APP } from '../api';
 import messaging from '@react-native-firebase/messaging';
 import Modal from 'react-native-modal';
 import { LinearGradient } from 'expo-linear-gradient';
+import { clearStoredSession, refreshStoredToken } from '../utils/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -126,7 +127,7 @@ const startTokenRefresh = () => {
 
     try {
       isRefreshing = true;
-      const newToken = await refreshToken();
+      const newToken = await refreshStoredToken();
       
       if (newToken) {
         console.log('✅ Token rafraîchi automatiquement');
@@ -160,7 +161,7 @@ const initializeTokenRefresh = () => {
   startTokenRefresh();
 
   // Rafraîchir immédiatement au démarrage
-  refreshToken().then(token => {
+  refreshStoredToken().then(token => {
     if (token) {
       console.log('✅ Token rafraîchi au démarrage');
     }
@@ -173,7 +174,7 @@ const initializeTokenRefresh = () => {
     if (nextAppState === 'active') {
       console.log('📱 App au premier plan - vérification du token');
       // Vérifier et rafraîchir si nécessaire
-      refreshToken().catch(err => {
+      refreshStoredToken().catch(err => {
         console.log('⚠️ Rafraîchissement lors de la reprise échoué (non critique)');
       });
       startTokenRefresh();
@@ -490,9 +491,7 @@ const LoginPage = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       stopTokenRefresh();
-      await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('firebaseID');
-      await AsyncStorage.removeItem('firebaseRegistered');
+      await clearStoredSession();
       failedRefreshCount = 0;
       console.log('👋 Utilisateur déconnecté manuellement');
     } catch (error) {

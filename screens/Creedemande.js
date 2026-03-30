@@ -19,6 +19,7 @@ import Header from '../components/Header';
 import DynamicHeader from '../screens/header';
 import axios from 'axios';
 import { BASE_URL_APP } from '../api.js';
+import { getUsableToken } from '../utils/auth';
 
 const documentTypes = [
   { 
@@ -128,7 +129,7 @@ export default function CreateRequestScreen({ navigation }) {
     setSubmitting(true);
 
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       
       // Préparer les données selon le type de document
       const requestData = {
@@ -177,7 +178,7 @@ export default function CreateRequestScreen({ navigation }) {
         console.log('Status:', error.response.status);
         
         if (error.response.status === 401) {
-          errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+          errorMessage = 'Session non rafraichie pour le moment.';
         } else if (error.response.status === 500) {
           errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
         } else if (error.response.data?.error) {

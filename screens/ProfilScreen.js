@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import Loading from '../components/loading.js';
+import { clearStoredSession, fetchWithAutoRefresh } from '../utils/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -107,10 +108,9 @@ export default function ProfileScreen({ navigation }) {
         return null;
       }
 
-      const response = await fetch(`https://isbadmin.tn/api/getProfile`, {
+      const { response } = await fetchWithAutoRefresh(`https://isbadmin.tn/api/getProfile`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -118,7 +118,7 @@ export default function ProfileScreen({ navigation }) {
 
       if (!response.ok) {
         if (response.status === 401) {
-          Alert.alert('Session expirée', 'Veuillez vous reconnecter');
+          Alert.alert('Session', 'Impossible de rafraichir la session pour le moment');
           return null;
         }
         throw new Error(`Erreur HTTP: ${response.status}`);
@@ -191,7 +191,7 @@ export default function ProfileScreen({ navigation }) {
   // Fonction pour nettoyer les données utilisateur
   const clearUserData = async () => {
     try {
-      await AsyncStorage.multiRemove(['userToken', 'userData']);
+      await clearStoredSession();
     } catch (error) {
       console.log('Erreur clearUserData:', error);
     }

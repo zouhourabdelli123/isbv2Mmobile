@@ -14,6 +14,7 @@ import {
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 import DynamicHeader from '../screens/header';
 import Header from '../components/Header';
 import { BASE_URL_APP } from '../api.js';
@@ -33,7 +34,7 @@ export default function PaymentScreen() {
 const fetchPayments = async () => {
   console.log('[fetchPayments] Début de la récupération des paiements...');
   try {
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await getUsableToken();
     console.log('[fetchPayments] Token récupéré:', token);
 
     if (!token) {

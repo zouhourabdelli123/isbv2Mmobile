@@ -17,6 +17,7 @@ import {
 import { MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 import Header from '../components/Header';
 import { BASE_URL_APP } from '../api.js';
 import Loading from '../components/loading.js';
@@ -72,7 +73,6 @@ export default function NotesScreen({ navigation, route }) {
       const userData = await AsyncStorage.getItem('userData');
       if (userData) setUserInfo(JSON.parse(userData));
     } catch (error) {
-      console.log('Error fetching user info:', error);
     }
   };
 
@@ -184,7 +184,7 @@ export default function NotesScreen({ navigation, route }) {
   const fetchNotes = async () => {
     try {
       setRefreshing(true);
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       
       if (!token) {
         Alert.alert('Erreur', 'Token d\'authentification manquant');
@@ -215,7 +215,6 @@ export default function NotesScreen({ navigation, route }) {
         Alert.alert('Erreur', data.error || 'Impossible de charger les notes');
       }
     } catch (error) {
-      console.log('Erreur réseau:', error);
       Alert.alert('Erreur', 'Problème de connexion réseau');
     } finally {
       setLoading(false);
@@ -234,6 +233,11 @@ export default function NotesScreen({ navigation, route }) {
     setSelectedMatiere('all');
   };
 
+  const formatGradeValue = (value) => {
+    const grade = parseFloat(value);
+    return Number.isNaN(grade) ? '--' : grade.toFixed(2);
+  };
+
   const getGradeColor = (note) => {
     const grade = parseFloat(note);
     if (grade >= 16) return '#10b981';
@@ -241,24 +245,6 @@ export default function NotesScreen({ navigation, route }) {
     if (grade >= 12) return '#f59e0b';
     if (grade >= 10) return '#06b6d4';
     return '#ef4444';
-  };
-
-  const getGradeLabel = (note) => {
-    const grade = parseFloat(note);
-    if (grade >= 16) return '⭐ Excellent';
-    if (grade >= 14) return '👍 Très Bien';
-    if (grade >= 12) return '✅ Bien';
-    if (grade >= 10) return '☑️ Passable';
-    return '❌ À repasser';
-  };
-
-  const getGradeIcon = (note) => {
-    const grade = parseFloat(note);
-    if (grade >= 16) return 'star';
-    if (grade >= 14) return 'thumb-up';
-    if (grade >= 12) return 'trending-up';
-    if (grade >= 10) return 'check';
-    return 'trending-down';
   };
 
   const renderFilters = () => (
@@ -425,15 +411,9 @@ export default function NotesScreen({ navigation, route }) {
                         styles.gradeValue,
                         { color: getGradeColor(note.note) }
                       ]}>
-                        {note.note}
+                        {formatGradeValue(note.note)}
                       </Text>
                     </View>
-                    <Text style={[
-                      styles.gradeLabel,
-                      { color: getGradeColor(note.note) }
-                    ]}>
-                      {getGradeLabel(note.note)}
-                    </Text>
                   </View>
                 </TouchableOpacity>
                 {noteIndex < moduleNotes.length - 1 && <View style={styles.noteSeparator} />}
@@ -627,23 +607,9 @@ export default function NotesScreen({ navigation, route }) {
                         styles.largeGradeValue,
                         { color: getGradeColor(selectedNote.note) }
                       ]}>
-                        {selectedNote.note}
+                        {formatGradeValue(selectedNote.note)}
                       </Text>
                       <Text style={styles.gradeScale}>/ 20</Text>
-                    </View>
-                    
-                    <View style={styles.appreciationContainer}>
-                      <MaterialIcons 
-                        name={getGradeIcon(selectedNote.note)} 
-                        size={24} 
-                        color={getGradeColor(selectedNote.note)} 
-                      />
-                      <Text style={[
-                        styles.gradeAppreciation,
-                        { color: getGradeColor(selectedNote.note) }
-                      ]}>
-                        {getGradeLabel(selectedNote.note)}
-                      </Text>
                     </View>
                   </View>
                 </View>

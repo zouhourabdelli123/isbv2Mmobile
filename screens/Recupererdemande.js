@@ -20,6 +20,7 @@ import DynamicHeader from '../screens/header';
 import axios from 'axios';
 import { BASE_URL_APP } from '../api.js';
 import Loading from '../components/loading.js';
+import { getUsableToken } from '../utils/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -126,11 +127,10 @@ export default function DocumentsScreen({ navigation }) {
 
   const fetchDocuments = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       
       if (!token) {
-        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
-        navigation.navigate('Login');
+        Alert.alert('Erreur', 'Session indisponible pour le moment.');
         return;
       }
 
@@ -161,8 +161,7 @@ export default function DocumentsScreen({ navigation }) {
       
       if (error.response) {
         if (error.response.status === 401) {
-          errorMessage = 'Session expirée. Veuillez vous reconnecter.';
-          navigation.navigate('Login');
+          errorMessage = 'Session non rafraichie pour le moment.';
           return;
         } else if (error.response.status === 500) {
           errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';

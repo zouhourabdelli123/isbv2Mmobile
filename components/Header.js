@@ -12,6 +12,7 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 
 export default function Header({ title, withBackButton = false }) {
   const navigation = useNavigation();
@@ -22,7 +23,7 @@ export default function Header({ title, withBackButton = false }) {
 
   const fetchNotificationCount = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       if (!token) return;
 
       const response = await fetch(`https://isbadmin.tn/api/getNotifications`, {

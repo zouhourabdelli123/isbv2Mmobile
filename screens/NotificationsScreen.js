@@ -31,6 +31,7 @@ import DynamicHeader from './header';
 import {
   LinearGradient
 } from 'expo-linear-gradient';
+import { fetchWithAutoRefresh, getUsableToken } from '../utils/auth';
 
 const {
   width
@@ -245,26 +246,25 @@ const NotificationScreen = () => {
     }
 
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       if (!token) {
         throw new Error('Token d\'authentification non trouvé');
       }
 
       const currentPage = loadMore ? page + 1 : 1;
 
-      const response = await fetch(`https://isbadmin.tn/api/getNotifications?page=${currentPage}`, {
+      const { response } = await fetchWithAutoRefresh(`https://isbadmin.tn/api/getNotifications?page=${currentPage}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         },
         timeout: 15000
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Session expirée, veuillez vous reconnecter');
+      if (!response || !response.ok) {
+        if (response?.status === 401) {
+          throw new Error('Session non rafraichie pour le moment');
         }
         const errorText = await response.text();
         throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur serveur'}`);

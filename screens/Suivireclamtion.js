@@ -13,6 +13,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 import DynamicHeader from './header';
 import Header from '../components/Header';
 import Loading from '../components/loading.js';
@@ -37,7 +38,7 @@ export default function ListeReclamationScreen({ navigation }) {
   const fetchUserInfo = async () => {
     console.log('[fetchUserInfo] Début de la récupération des informations utilisateur...');
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       const userData = await AsyncStorage.getItem('userData');
       
       if (userData) {
@@ -65,7 +66,7 @@ export default function ListeReclamationScreen({ navigation }) {
   const fetchData = async () => {
     console.log('[fetchData] Début de la récupération des réclamations...');
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       if (!token) {
         console.log("Token is null");
         throw new Error("Token is null");

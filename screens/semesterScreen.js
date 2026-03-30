@@ -18,6 +18,7 @@ import {
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUsableToken } from '../utils/auth';
 import DynamicHeader from './header';
 import Header from '../components/Header';
 import { BASE_URL_APP } from '../api.js';
@@ -76,7 +77,7 @@ export default function RequestScreen({ navigation }) {
   const fetchSchoolYears = async () => {
     setLoadingYears(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       
       if (!token) {
         Alert.alert('Erreur', 'Token d\'authentification manquant');
@@ -103,11 +104,9 @@ export default function RequestScreen({ navigation }) {
           setSelectedYear(formattedYears[0].year);
         }
       } else {
-        console.log('Erreur lors de la récupération des années:', data.error);
         Alert.alert('Erreur', 'Impossible de charger les années scolaires');
       }
     } catch (error) {
-      console.log('Erreur réseau:', error);
       Alert.alert('Erreur', 'Problème de connexion réseau');
     } finally {
       setLoadingYears(false);
@@ -115,9 +114,8 @@ export default function RequestScreen({ navigation }) {
   };
 
   const fetchUserInfo = async () => {
-    console.log('[fetchUserInfo] Début de la récupération des informations utilisateur...');
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await getUsableToken();
       const userData = await AsyncStorage.getItem('userData');
       
       if (userData) {
@@ -139,7 +137,6 @@ export default function RequestScreen({ navigation }) {
       ]).start();
 
     } catch (error) {
-      console.log('[fetchUserInfo] Erreur:', error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);

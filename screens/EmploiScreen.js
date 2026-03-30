@@ -20,6 +20,7 @@ import DynamicHeader from './header';
 import Header from '../components/Header';
 import { BASE_URL_APP } from '../api.js';
 import Loading from '../components/loading.js';
+import { fetchWithAutoRefresh } from '../utils/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,13 +36,8 @@ export default function ScheduleScreen({ navigation }) {
 
   // Token error handler
   const handleTokenError = useCallback(async () => {
-    console.log('Token invalide ou expiré, déconnexion...');
-    try {
-      await AsyncStorage.multiRemove(['userToken', 'userData']);
-      navigation.navigate('Login');
-    } catch (error) {
-      console.log('Error clearing storage:', error);
-    }
+    console.log('Token invalide ou expiré, session conservée localement');
+    return;
   }, [navigation]);
 
 const fetchSchedule = useCallback(async () => {
@@ -51,16 +47,15 @@ const fetchSchedule = useCallback(async () => {
       throw new Error('Token non trouvé');
     }
 
-    const response = await fetch(`https://isbadmin.tn/api/getCalendar`, {
+    const { response } = await fetchWithAutoRefresh(`https://isbadmin.tn/api/getCalendar`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
     });
 
-    if (response.status === 401) {
+    if (!response || response.status === 401) {
       await handleTokenError();
       return;
     }

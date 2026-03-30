@@ -1,8 +1,17 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, LogBox } from 'react-native';
 import AppNavigator from './AppNavigator';
+
+LogBox.ignoreAllLogs(true);
+
+if (__DEV__) {
+  console.log = () => {};
+  console.info = () => {};
+  console.warn = () => {};
+  console.debug = () => {};
+}
 
 export default function App() {
   const [expoPushToken, setExpoPushToken] = useState('');

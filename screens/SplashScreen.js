@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { refreshStoredToken } from '../utils/auth';
 
 const SplashScreen = ({ navigation }) => {
   useEffect(() => {
@@ -13,6 +14,9 @@ const SplashScreen = ({ navigation }) => {
 
   const checkLoggedIn = async () => {
     const userToken = await AsyncStorage.getItem('userToken');
+    if (userToken) {
+      await refreshStoredToken();
+    }
     navigation.replace(userToken ? 'Home' : 'Login');
   };
 
