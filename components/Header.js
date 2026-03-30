@@ -183,8 +183,12 @@ const styles = StyleSheet.create({
   titleSection: {
     flex: 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'left',
     paddingHorizontal: 16,
+       marginLeft:-44,
+      fontSize: 22,
+
+
   },
   rightSection: {
     flexDirection: 'row',

@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  ScrollView, 
-  Text, 
-  TouchableOpacity, 
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  Text,
+  TouchableOpacity,
   StatusBar,
   Dimensions,
   Platform,
   Alert,
   ActivityIndicator,
   Image,
-  Linking
+  Linking,
+  Modal,
+  SafeAreaView
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import { shareAsync } from 'expo-sharing';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const stripHtmlTags = (html) => {
   if (!html) return '';
@@ -41,13 +45,13 @@ const formatNotificationDate = (dateString) => {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   const isToday = date.toDateString() === today.toDateString();
   const isYesterday = date.toDateString() === yesterday.toDateString();
-  
+
   if (isToday) return "Aujourd'hui";
   if (isYesterday) return "Hier";
-  
+
   return date.toLocaleDateString('fr-FR', {
     weekday: 'long',
     day: 'numeric',
@@ -61,13 +65,17 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [recentNotifications, setRecentNotifications] = useState([]);
   const [notificationLoading, setNotificationLoading] = useState(false);
-  const [showWebView, setShowWebView] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const [currentPdfUrl, setCurrentPdfUrl] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfTitle, setPdfTitle] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [webViewError, setWebViewError] = useState(false);
 
   const fetchProfileFromAPI = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      
+
       if (!token) {
         Alert.alert('Erreur', 'Token d\'authentification manquant');
         return null;
@@ -100,7 +108,7 @@ export default function HomeScreen() {
 
     } catch (error) {
       console.log('Erreur:', error.message);
-      
+
       if (error.message.includes('Network')) {
         Alert.alert('Erreur de connexion', 'Vérifiez votre connexion internet');
       } else if (error.message.includes('token_message')) {
@@ -108,7 +116,7 @@ export default function HomeScreen() {
       } else {
         Alert.alert('Erreur', 'Impossible de récupérer le profil');
       }
-      
+
       return null;
     }
   };
@@ -158,42 +166,39 @@ export default function HomeScreen() {
       fetchRecentNotifications();
     }, [])
   );
-  
+
   const features = [
-    { 
-      title: 'Mes Notes', 
-      icon: 'school-outline', 
+    {
+      title: 'Mes Notes',
+      icon: 'school-outline',
       screen: 'Semester',
       gradient: ['#1E3A8A', '#2563EB'],
       description: 'Consultez vos notes'
     },
-       { 
-      title: 'Paiements', 
-      icon: 'card-outline', 
+    {
+      title: 'Paiements',
+      icon: 'card-outline',
       screen: 'Payment',
       gradient: ['#F59E0B', '#FBBF24'],
       description: 'Historique des paiements'
     },
-      { 
-      title: 'Emploi du temps', 
-      icon: 'calendar-outline', 
+    {
+      title: 'Emploi du temps',
+      icon: 'calendar-outline',
       screen: 'Emploi',
       gradient: ['#1E3A8A', '#3B82F6'],
       description: 'Planning des cours'
     },
-
-
- 
-    { 
-      title: 'Réclamation', 
-      icon: 'alert-circle-outline', 
+    {
+      title: 'Réclamation',
+      icon: 'alert-circle-outline',
       screen: 'Reclamation',
       gradient: ['#EF4444', '#DC2626'],
       description: 'Déposer une réclamation'
     },
-        { 
-      title: 'Documents', 
-      icon: 'folder-outline', 
+    {
+      title: 'Documents',
+      icon: 'folder-outline',
       screen: 'Documents',
       gradient: ['#1E3A8A', '#3B82F6'],
       description: 'Gérez vos fichiers'
@@ -205,7 +210,7 @@ export default function HomeScreen() {
       title: 'Calendrier Universitaire 2024-2025',
       description: 'Planning académique complet de l\'année universitaire avec toutes les dates importantes',
       fileName: 'CALENDRIER_UNIVERSITAIRE_2024_2025.pdf',
-      url: 'https://isbadmin.tn/storage/emploi/calendrier_2025-2026.pdf',
+      url: 'https://isb.tn/calendrier.pdf',
       icon: 'calendar',
       color: ['#1E3A8A', '#1D4ED8'],
       category: 'Académique',
@@ -215,93 +220,274 @@ export default function HomeScreen() {
 
   const handleOpenPDF = async (url, title) => {
     try {
-      // Vérifier si l'URL est valide
-      if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
-        Alert.alert(
-          'Lien non configuré',
-          'Le document n\'est pas encore disponible. Veuillez contacter l\'administration.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
+      setPdfLoading(true);
+      setWebViewError(false);
+      setPdfTitle(title);
+      setCurrentPdfUrl(url);
+      setShowPdfModal(true);
+      // Note: NE PAS appeler setPdfLoading(false) ici
+      // Le WebView gérera cela via onLoadEnd
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le document.');
+      setPdfLoading(false);
+    }
+  };
 
-      // Vérifier si on peut ouvrir le lien
-      const supported = await Linking.canOpenURL(url);
-      
+  const handleClosePDF = () => {
+    setShowPdfModal(false);
+    setCurrentPdfUrl('');
+    setPdfTitle('');
+    setPdfLoading(false);
+    setWebViewError(false);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!currentPdfUrl) return;
+
+    try {
+      setDownloading(true);
+
+      // Créer un nom de fichier valide
+      const fileName = pdfTitle.replace(/[^a-z0-9]/gi, '_') + '.pdf';
+      const fileUri = FileSystem.documentDirectory + fileName;
+
+      // Télécharger le fichier
+      const downloadResult = await FileSystem.downloadAsync(
+        currentPdfUrl,
+        fileUri
+      );
+
+      if (downloadResult.status === 200) {
+        // Ouvrir le fichier avec une application externe
+        if (Platform.OS === 'ios') {
+          await shareAsync(downloadResult.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Télécharger ${pdfTitle}`,
+            UTI: 'com.adobe.pdf'
+          });
+        } else {
+          // Pour Android, demander la permission et sauvegarder
+          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+          
+          if (permissions.granted) {
+            const base64Data = await FileSystem.readAsStringAsync(downloadResult.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+              permissions.directoryUri,
+              fileName,
+              'application/pdf'
+            );
+            
+            await FileSystem.writeAsStringAsync(newFileUri, base64Data, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+
+            Alert.alert(
+              'Succès',
+              'Le document a été téléchargé avec succès dans votre dossier Documents.',
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erreur de téléchargement:', error);
+      Alert.alert(
+        'Erreur',
+        'Impossible de télécharger le document. Veuillez réessayer.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleSharePDF = async () => {
+    if (!currentPdfUrl) return;
+
+    try {
+      // Télécharger temporairement pour le partage
+      const fileName = 'temp_share_' + Date.now() + '.pdf';
+      const downloadResult = await FileSystem.downloadAsync(
+        currentPdfUrl,
+        FileSystem.cacheDirectory + fileName
+      );
+
+      if (downloadResult.status === 200) {
+        await shareAsync(downloadResult.uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Partager ${pdfTitle}`,
+          UTI: 'com.adobe.pdf'
+        });
+      }
+    } catch (error) {
+      console.error('Erreur de partage:', error);
+      Alert.alert(
+        'Erreur',
+        'Impossible de partager le document.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleOpenInExternalApp = async () => {
+    if (!currentPdfUrl) return;
+
+    try {
+      const supported = await Linking.canOpenURL(currentPdfUrl);
+
       if (supported) {
-        await Linking.openURL(url);
+        await Linking.openURL(currentPdfUrl);
       } else {
         Alert.alert(
           'Erreur',
-          `Impossible d'ouvrir le document: ${title}`,
+          'Aucune application disponible pour ouvrir les fichiers PDF.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
+      console.error('Erreur d\'ouverture externe:', error);
       Alert.alert(
         'Erreur',
-        'Une erreur s\'est produite lors de l\'ouverture du document.',
+        'Impossible d\'ouvrir le document dans une application externe.',
         [{ text: 'OK' }]
       );
-      console.error('Erreur d\'ouverture PDF:', error);
     }
-  };
-
-
-  const handleCloseWebView = () => {
-    setShowWebView(false);
-    setCurrentPdfUrl('');
   };
 
   const handleFeaturePress = (screen) => {
     try {
       navigation.navigate(screen);
     } catch (error) {
+      console.error('Navigation error:', error);
       Alert.alert('Navigation', `Redirection vers ${screen}`);
     }
   };
 
-  if (showWebView) {
+  const renderPdfModal = () => {
+    if (!showPdfModal) return null;
+
     return (
-      <View style={styles.webViewContainer}>
-        <View style={styles.webViewHeader}>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={handleCloseWebView}
-          >
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.webViewTitle}>Document PDF</Text>
-          <TouchableOpacity 
-            style={styles.shareButton}
-            onPress={() => Linking.openURL(currentPdfUrl)}
-          >
-            <Ionicons name="open-outline" size={20} color="white" />
-          </TouchableOpacity>
-        </View>
-        <WebView 
-          source={{ uri: currentPdfUrl }}
-          style={styles.webView}
-          allowsInlineMediaPlayback={true}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          scalesPageToFit={true}
-          renderLoading={() => (
-            <View style={styles.webViewLoading}>
-              <ActivityIndicator size="large" color="#1E3A8A" />
-              <Text style={styles.loadingText}>Chargement du document...</Text>
+      <Modal
+        visible={showPdfModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        statusBarTranslucent={true}
+        onRequestClose={handleClosePDF}
+      >
+        <SafeAreaView style={styles.pdfModalContainer}>
+          {/* En-tête du modal */}
+          <View style={styles.pdfModalHeader}>
+            <TouchableOpacity
+              style={styles.pdfModalCloseButton}
+              onPress={handleClosePDF}
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+
+            <View style={styles.pdfModalTitleContainer}>
+              <Text style={styles.pdfModalTitle} numberOfLines={1}>
+                {pdfTitle}
+              </Text>
             </View>
-          )}
-        />
-      </View>
+
+            <View style={styles.pdfModalActions}>
+              <TouchableOpacity
+                style={styles.pdfModalActionButton}
+                onPress={handleDownloadPDF}
+                disabled={downloading}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Ionicons name="download-outline" size={22} color="white" />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.pdfModalActionButton}
+                onPress={handleSharePDF}
+              >
+                <Ionicons name="share-outline" size={22} color="white" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.pdfModalActionButton}
+                onPress={handleOpenInExternalApp}
+              >
+                <Ionicons name="open-outline" size={22} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Contenu WebView */}
+          <View style={styles.pdfWebViewContainer}>
+            {webViewError ? (
+              <View style={styles.pdfErrorContainer}>
+                <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+                <Text style={styles.pdfErrorText}>
+                  Impossible de charger le document
+                </Text>
+                <TouchableOpacity
+                  style={styles.pdfErrorButton}
+                  onPress={() => {
+                    setWebViewError(false);
+                    setPdfLoading(true);
+                  }}
+                >
+                  <Text style={styles.pdfErrorButtonText}>Réessayer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pdfErrorButton, styles.pdfErrorButtonSecondary]}
+                  onPress={handleOpenInExternalApp}
+                >
+                  <Text style={styles.pdfErrorButtonText}>Ouvrir dans une app externe</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <WebView
+                source={{ 
+                  uri: `https://docs.google.com/viewer?url=${encodeURIComponent(currentPdfUrl)}&embedded=true` 
+                }}
+                style={styles.pdfWebView}
+                startInLoadingState={true}
+                scalesPageToFit={true}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                allowsInlineMediaPlayback={true}
+                mixedContentMode="always"
+                originWhitelist={['*']}
+                onLoadStart={() => setPdfLoading(true)}
+                onLoadEnd={() => setPdfLoading(false)}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.error('WebView error:', nativeEvent);
+                  setPdfLoading(false);
+                  setWebViewError(true);
+                }}
+                renderLoading={() => (
+                  <View style={styles.pdfLoadingContainer}>
+                    <ActivityIndicator size="large" color="#1E3A8A" />
+                    <Text style={styles.pdfLoadingText}>Chargement du document...</Text>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     );
-  }
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1E3A8A" />
-      
+
+      {/* Modal PDF */}
+      {renderPdfModal()}
+
       <View style={styles.headerContainer}>
         <LinearGradient
           colors={['#1E3A8A', '#2563EB', '#3B82F6']}
@@ -309,11 +495,11 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.gradientBackground}
         />
-        
+
         <View style={styles.decorativeCircle1} />
         <View style={styles.decorativeCircle2} />
         <View style={styles.decorativeAccent} />
-        
+
         <View style={styles.headerContent}>
           <View style={styles.userInfo}>
             {loading ? (
@@ -339,25 +525,25 @@ export default function HomeScreen() {
               </>
             )}
           </View>
-          
+
           <View style={styles.headerIcons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.iconButton}
               onPress={() => handleFeaturePress('Messagerie')}
               activeOpacity={0.7}
             >
               <Ionicons name="chatbubble-outline" size={20} color="white" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.iconButton}
               onPress={() => handleFeaturePress('notifications')}
               activeOpacity={0.7}
             >
               <Ionicons name="notifications-outline" size={20} color="white" />
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.profileButton}
               onPress={() => handleFeaturePress('Profile')}
               activeOpacity={0.7}
@@ -368,7 +554,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         bounces={false}
@@ -378,7 +564,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionSubtitle}>
             Accédez rapidement à tous vos services académiques
           </Text>
-          
+
           <View style={styles.grid}>
             {features.map((item, index) => (
               <TouchableOpacity
@@ -395,10 +581,10 @@ export default function HomeScreen() {
                 >
                   <View style={styles.cardContent}>
                     <View style={styles.iconContainer}>
-                      <Ionicons 
-                        name={item.icon} 
-                        size={28} 
-                        color="white" 
+                      <Ionicons
+                        name={item.icon}
+                        size={28}
+                        color="white"
                       />
                     </View>
                     <View style={styles.textContainer}>
@@ -421,7 +607,7 @@ export default function HomeScreen() {
               </Text>
             </View>
           </View>
-          
+
           {pdfDocuments.map((doc, index) => (
             <TouchableOpacity
               key={index}
@@ -439,7 +625,7 @@ export default function HomeScreen() {
                   <View style={styles.pdfIconContainer}>
                     <Ionicons name={doc.icon} size={32} color="white" />
                   </View>
-                  
+
                   <View style={styles.pdfTextContent}>
                     <View style={styles.pdfTitleRow}>
                       <Text style={styles.pdfTitle} numberOfLines={2}>{doc.title}</Text>
@@ -456,7 +642,7 @@ export default function HomeScreen() {
                       </View>
                     </View>
                   </View>
-                  
+
                   <View style={styles.pdfActionContainer}>
                     <View style={styles.downloadButton}>
                       <Ionicons name="eye-outline" size={22} color="white" />
@@ -469,81 +655,80 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.newsSection}>
-        <Text style={styles.sectionTitle}>Actualités</Text>
-        <Text style={styles.sectionSubtitle}>
-          Les dernières informations de votre établissement
-        </Text>
+          <Text style={styles.sectionTitle}>Actualités</Text>
+          <Text style={styles.sectionSubtitle}>
+            Les dernières informations de votre établissement
+          </Text>
 
-        {notificationLoading ? (
-          <View style={styles.newsCard}>
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#1E3A8A" />
-              <Text style={styles.newsDescription}>Chargement des notifications...</Text>
-            </View>
-          </View>
-        ) : recentNotifications.length > 0 ? (
-          <>
-            {recentNotifications
-              .slice(0, 2) // <= Limite à 2 notifications
-              .map((notification, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.newsCard,
-                    index !== 1 && styles.notificationSeparator // Séparateur sauf après le 2e
-                  ]}
-                  onPress={() => handleFeaturePress('notifications')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.newsHeader}>
-                    <View style={styles.newsIconContainer}>
-                      <Image
-                        source={require('../assets/isb.png')}
-                        style={styles.notificationLogo}
-                      />
-                    </View>
-                    <Text style={styles.newsTitle} numberOfLines={1}>
-                      {notification.title}
-                    </Text>
-                    <View style={styles.newsDateBadge}>
-                      <Text style={styles.newsDateBadgeText}>
-                        {formatNotificationDate(notification.date)}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.newsDescription} numberOfLines={3}>
-                    {stripHtmlTags(notification.text)}
-                  </Text>
-                  <View style={styles.newsFooter}>
-                    <TouchableOpacity
-                      style={styles.readMoreButton}
-                      onPress={() => handleFeaturePress('notifications')}
-                    >
-                      <Text style={styles.readMoreText}>Lire la suite</Text>
-                      <Ionicons name="chevron-forward" size={14} color="#1E3A8A" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-          </>
-        ) : (
-          <View style={styles.newsCard}>
-            <View style={styles.newsHeader}>
-              <View style={styles.newsIconContainer}>
-                <Image
-                  source={require('../assets/isb.png')}
-                  style={styles.notificationLogo}
-                />
+          {notificationLoading ? (
+            <View style={styles.newsCard}>
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#1E3A8A" />
+                <Text style={styles.newsDescription}>Chargement des notifications...</Text>
               </View>
-              <Text style={styles.newsTitle}>Aucune notification</Text>
             </View>
-            <Text style={styles.newsDescription}>
-              Vous n'avez pas de nouvelles notifications pour le moment. Revenez plus tard pour voir les dernières actualités.
-            </Text>
-          </View>
-        )}
-      </View>
-
+          ) : recentNotifications.length > 0 ? (
+            <>
+              {recentNotifications
+                .slice(0, 2)
+                .map((notification, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.newsCard,
+                      index !== 1 && styles.notificationSeparator
+                    ]}
+                    onPress={() => handleFeaturePress('notifications')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.newsHeader}>
+                      <View style={styles.newsIconContainer}>
+                        <Image
+                          source={require('../assets/isb.png')}
+                          style={styles.notificationLogo}
+                        />
+                      </View>
+                      <Text style={styles.newsTitle} numberOfLines={1}>
+                        {notification.title}
+                      </Text>
+                      <View style={styles.newsDateBadge}>
+                        <Text style={styles.newsDateBadgeText}>
+                          {formatNotificationDate(notification.date)}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.newsDescription} numberOfLines={3}>
+                      {stripHtmlTags(notification.text)}
+                    </Text>
+                    <View style={styles.newsFooter}>
+                      <TouchableOpacity
+                        style={styles.readMoreButton}
+                        onPress={() => handleFeaturePress('notifications')}
+                      >
+                        <Text style={styles.readMoreText}>Lire la suite</Text>
+                        <Ionicons name="chevron-forward" size={14} color="#1E3A8A" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+            </>
+          ) : (
+            <View style={styles.newsCard}>
+              <View style={styles.newsHeader}>
+                <View style={styles.newsIconContainer}>
+                  <Image
+                    source={require('../assets/isb.png')}
+                    style={styles.notificationLogo}
+                  />
+                </View>
+                <Text style={styles.newsTitle}>Aucune notification</Text>
+              </View>
+              <Text style={styles.newsDescription}>
+                Vous n'avez pas de nouvelles notifications pour le moment. Revenez plus tard pour voir les dernières actualités.
+              </Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -556,56 +741,108 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  webViewContainer: {
+  pdfModalContainer: {
     flex: 1,
     backgroundColor: '#1E3A8A',
   },
-  webViewHeader: {
-    height: Platform.OS === 'ios' ? 100 : 80,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingHorizontal: 20,
+  pdfModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: Platform.OS === 'ios' ? 100 : 80,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: 15,
     backgroundColor: '#1E3A8A',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
-  webViewTitle: {
-    fontSize: 18,
+  pdfModalCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  pdfModalTitleContainer: {
+    flex: 1,
+    paddingHorizontal: 10,
+  },
+  pdfModalTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: 'white',
-    flex: 1,
     textAlign: 'center',
-    marginHorizontal: 20,
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  pdfModalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pdfModalActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  shareButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  webView: {
+  pdfWebViewContainer: {
     flex: 1,
     backgroundColor: 'white',
   },
-  webViewLoading: {
+  pdfWebView: {
+    flex: 1,
+  },
+  pdfLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'white',
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  pdfLoadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  pdfErrorContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'white',
+    padding: 20,
+  },
+  pdfErrorText: {
+    fontSize: 18,
+    color: '#1E293B',
+    fontWeight: '600',
+    marginTop: 20,
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  pdfErrorButton: {
+    backgroundColor: '#1E3A8A',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    width: '80%',
+  },
+  pdfErrorButtonSecondary: {
+    backgroundColor: '#64748B',
+  },
+  pdfErrorButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   headerContainer: {
     height: Platform.OS === 'ios' ? 140 : 120,

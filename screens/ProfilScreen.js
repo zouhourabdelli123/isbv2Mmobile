@@ -360,10 +360,7 @@ export default function ProfileScreen({ navigation }) {
                     {profileData.prenom} {profileData.nom}
                   </Text>
                   
-                  <Text style={styles.heroCode}>
-                    Code étudiant: {profileData.code_etudiant}
-                  </Text>
-                  
+      
                   {/* Section des dates en temps réel avec design ISB */}
                   <View style={styles.dateContainer}>
                     <View style={styles.dateItem}>

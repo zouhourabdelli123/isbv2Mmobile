@@ -38,8 +38,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   logo: {
-    width: width * 0.8, 
-    height: width * 0.8, 
+    width: width * 0.9, 
+    height: width * 0.9, 
   },
   spinner: {
     marginTop: 20,

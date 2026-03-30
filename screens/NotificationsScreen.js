@@ -1,42 +1,66 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback
+} from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Animated,
   Dimensions,
   RefreshControl,
   TextInput,
   Platform,
   FlatList,
-  ScrollView,
+  KeyboardAvoidingView,
   Alert,
   Linking
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  useNavigation
+} from '@react-navigation/native';
+import {
+  Ionicons
+} from '@expo/vector-icons';
 import Header from '../components/Header';
 import DynamicHeader from './header';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  LinearGradient
+} from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
-
-// Configuration API
-import { BASE_URL_APP } from '../api.js';
+const {
+  width
+} = Dimensions.get('window');
 
 // Fonctions utilitaires
 const getNotificationIcon = (title) => {
   if (!title) return 'notifications-outline';
   const lowerTitle = title.toLowerCase();
   if (lowerTitle.includes('demande')) return 'document-text-outline';
-  if (lowerTitle.includes('validation') || lowerTitle.includes('approuvé')) return 'checkmark-circle-outline';
-  if (lowerTitle.includes('rejet') || lowerTitle.includes('refus')) return 'close-circle-outline';
+  if (lowerTitle.includes('validation')) return 'checkmark-circle-outline';
+  if (lowerTitle.includes('rejet')) return 'close-circle-outline';
   if (lowerTitle.includes('message')) return 'mail-outline';
   if (lowerTitle.includes('urgent')) return 'warning-outline';
-  if (lowerTitle.includes('information')) return 'information-circle-outline';
+  if (lowerTitle.includes('paiement')) return 'card-outline';
+  if (lowerTitle.includes('note')) return 'school-outline';
+  if (lowerTitle.includes('document')) return 'document-outline';
   return 'notifications-outline';
+};
+
+const getNotificationColor = (title) => {
+  if (!title) return '#3B82F6';
+  const lowerTitle = title.toLowerCase();
+  if (lowerTitle.includes('validation') || lowerTitle.includes('accepté')) return '#10B981';
+  if (lowerTitle.includes('rejet') || lowerTitle.includes('refusé')) return '#EF4444';
+  if (lowerTitle.includes('urgent') || lowerTitle.includes('important')) return '#F59E0B';
+  if (lowerTitle.includes('message') || lowerTitle.includes('information')) return '#8B5CF6';
+  if (lowerTitle.includes('paiement')) return '#EC4899';
+  if (lowerTitle.includes('note')) return '#06B6D4';
+  return '#3B82F6';
 };
 
 const formatDate = (dateString) => {
@@ -44,123 +68,95 @@ const formatDate = (dateString) => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
-    
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    
     return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
     });
   } catch (error) {
+    console.warn('Error formatting date:', error);
     return '';
   }
 };
 
-// Fonction pour traiter le HTML - CORRIGÉE
-const stripHtml = (html) => {
-  if (!html || typeof html !== 'string') return '';
-  
+const formatTime = (dateString) => {
+  if (!dateString) return '';
   try {
-    // D'abord, décoder les entités HTML
-    let text = html
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/&eacute;/g, 'é')
-      .replace(/&egrave;/g, 'è')
-      .replace(/&ecirc;/g, 'ê')
-      .replace(/&agrave;/g, 'à')
-      .replace(/&ccedil;/g, 'ç')
-      .replace(/&ocirc;/g, 'ô')
-      .replace(/&ucirc;/g, 'û')
-      .replace(/&icirc;/g, 'î');
-    
-    // Ensuite, supprimer les balises HTML tout en préservant le texte
-    text = text.replace(/<[^>]*>/g, '');
-    
-    // Nettoyer les espaces multiples et les sauts de ligne
-    text = text
-      .replace(/\s+/g, ' ')
-      .replace(/\n\s+/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    
-    return text;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   } catch (error) {
-    console.error('Error stripping HTML:', error);
-    return html.toString();
+    console.warn('Error formatting time:', error);
+    return '';
   }
 };
 
-// Fonction pour compter les mots
-const getWordCount = (text) => {
-  if (!text || typeof text !== 'string') return 0;
-  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, '') // Enlève les balises HTML
+    .replace(/&nbsp;/g, ' ') // Remplace &nbsp; par espace
+    .replace(/&amp;/g, '&') // Remplace &amp; par &
+    .replace(/&lt;/g, '<') // Remplace &lt; par <
+    .replace(/&gt;/g, '>') // Remplace &gt; par >
+    .replace(/&quot;/g, '"') // Remplace &quot; par "
+    .replace(/\s+/g, ' ') // Réduit les espaces multiples
+    .trim();
 };
 
-// Composant pour afficher le texte avec les liens cliquables - AMÉLIORÉ
-const RenderTextWithLinks = ({ text, style, numberOfLines }) => {
-  const openLink = useCallback((url) => {
-    try {
-      let finalUrl = url;
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        finalUrl = `https://${url}`;
-      }
-      
-      Alert.alert(
-        'Ouvrir le lien',
-        `Voulez-vous ouvrir ce lien ?\n${finalUrl}`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { 
-            text: 'Ouvrir', 
-            onPress: () => Linking.openURL(finalUrl).catch(() => {
-              Alert.alert('Erreur', 'Impossible d\'ouvrir le lien');
-            })
-          }
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Erreur', 'Lien non valide');
+const extractLinks = (text) => {
+  if (!text) return [];
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex) || [];
+};
+
+const groupNotificationsByDate = (notifications) => {
+  if (!notifications || notifications.length === 0) return [];
+
+  const groups = {};
+
+  notifications.forEach(notification => {
+    if (!notification || !notification.date) return;
+
+    const dateKey = new Date(notification.date).toDateString();
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
     }
-  }, []);
+    groups[dateKey].push(notification);
+  });
 
-  if (!text) return null;
+  return Object.keys(groups)
+    .sort((a, b) => new Date(b) - new Date(a))
+    .map(dateKey => ({
+      dateKey,
+      dateLabel: getDateLabel(dateKey),
+      notifications: groups[dateKey].sort((a, b) => new Date(b.date) - new Date(a.date))
+    }));
+};
 
-  // Regex améliorée pour détecter plus de types d'URLs
-  const urlRegex = /(https?:\/\/[^\s<>]+|www\.[^\s<>]+\.[^\s<>]+|[^\s<>]+\.[^\s<>]{2,}(?:\/[^\s<>]*)?)/gi;
-  const parts = text.split(urlRegex);
-  
-  return (
-    <Text style={style} numberOfLines={numberOfLines}>
-      {parts.map((part, index) => {
-        if (urlRegex.test(part)) {
-          return (
-            <Text
-              key={index}
-              style={styles.linkTextInContent}
-              onPress={() => openLink(part)}
-            >
-              {part}
-            </Text>
-          );
-        }
-        return part;
-      })}
-    </Text>
-  );
+const getDateLabel = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
+    if (date.toDateString() === yesterday.toDateString()) return "Hier";
+
+    return date.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (error) {
+    console.warn('Error formatting date label:', error);
+    return dateString;
+  }
 };
 
 const NotificationScreen = () => {
@@ -169,12 +165,17 @@ const NotificationScreen = () => {
   const [filteredNotifications, setFilteredNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(0));
+  const [cardsAnim] = useState(new Animated.Value(0));
+  const [searchAnim] = useState(new Animated.Value(0));
   const [userInfo, setUserInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedIds, setExpandedIds] = useState(new Set());
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Charger les données
+  const [expandedNotifications, setExpandedNotifications] = useState({});
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -182,20 +183,37 @@ const NotificationScreen = () => {
         if (userData) {
           setUserInfo(JSON.parse(userData));
         }
-        
+
+        // Animation séquentielle
+        Animated.sequence([
+          Animated.timing(slideAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true
+          }),
+          Animated.timing(searchAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true
+          }),
+          Animated.timing(cardsAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true
+          }),
+        ]).start();
+
         await fetchNotifications();
       } catch (error) {
-        console.error('Erreur lors du chargement:', error);
-        Alert.alert('Erreur', 'Impossible de charger les données');
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
-    
+
     loadData();
   }, []);
 
-  // Filtrer les notifications avec optimisation
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredNotifications(notifications);
@@ -204,492 +222,547 @@ const NotificationScreen = () => {
 
     const query = searchQuery.toLowerCase().trim();
     const filtered = notifications.filter(notif => {
-      const title = stripHtml(notif.title || '').toLowerCase();
-      const content = stripHtml(notif.content || '').toLowerCase();
-      const link = (notif.link || '').toLowerCase();
-      
-      return title.includes(query) || 
-             content.includes(query) || 
-             link.includes(query);
+      if (!notif) return false;
+
+      const title = notif.title?.toLowerCase() || '';
+      const type = notif.type?.toLowerCase() || '';
+      const text = stripHtml(notif.text || '').toLowerCase();
+
+      return title.includes(query) ||
+        type.includes(query) ||
+        text.includes(query);
     });
-    
+
     setFilteredNotifications(filtered);
   }, [searchQuery, notifications]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (loadMore = false) => {
+    if (loadMore) {
+      if (!hasMore || isLoadingMore) return;
+      setIsLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
-        navigation.navigate('Login');
-        return;
+        throw new Error('Token d\'authentification non trouvé');
       }
 
-      const response = await Promise.race([
-        fetch(`https://isbadmin.tn/api/getNotifications`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 15000)
-        )
-      ]);
+      const currentPage = loadMore ? page + 1 : 1;
+
+      const response = await fetch(`https://isbadmin.tn/api/getNotifications?page=${currentPage}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
 
       if (!response.ok) {
         if (response.status === 401) {
-          Alert.alert('Session expirée', 'Veuillez vous reconnecter.');
-          navigation.navigate('Login');
-          return;
+          throw new Error('Session expirée, veuillez vous reconnecter');
         }
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Erreur ${response.status}: ${errorText || 'Erreur serveur'}`);
       }
 
       const data = await response.json();
-      
-      let notificationsData = [];
-      
-      if (data.notifications && Array.isArray(data.notifications)) {
-        notificationsData = data.notifications;
-      } else if (Array.isArray(data)) {
-        notificationsData = data;
+
+      if (!data || !data.notifications) {
+        throw new Error('Format de réponse invalide');
       }
-      
-      const formattedNotifications = notificationsData.map((notif, index) => ({
-        id: notif.id || `notif_${index}_${Date.now()}`,
-        title: notif.title || 'Notification',
-        content: notif.text || notif.content || '',
-        type: 'general',
-        date: notif.date || notif.created_at || new Date().toISOString(),
-        etat: notif.etat || 0,
-        priority: notif.priority || 'normal',
-        link: notif.link || null
+
+      const newNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+
+      // Nettoyer et formater les données
+      const formattedNotifications = newNotifications.map(notification => ({
+        ...notification,
+        text: stripHtml(notification.text || notification.content || ''),
+        title: notification.title || 'Notification sans titre'
       }));
-      
-      // Trier par date (plus récent en premier)
-      formattedNotifications.sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      setNotifications(formattedNotifications);
-      
-      // AFFICHER LES NOTIFICATIONS DANS LA CONSOLE
-      console.log("=== NOTIFICATIONS RECEIVED ===");
-      console.log("Nombre total de notifications:", formattedNotifications.length);
-      console.log("Notifications non lues:", formattedNotifications.filter(n => n.etat === 0).length);
-      console.log("Détail des notifications:");
-      formattedNotifications.forEach((notif, index) => {
-        console.log(`\n--- Notification ${index + 1} ---`);
-        console.log("ID:", notif.id);
-        console.log("Titre:", notif.title);
-        console.log("Contenu:", notif.content);
-        console.log("Date:", notif.date);
-        console.log("État:", notif.etat === 0 ? "Non lu" : "Lu");
-        console.log("Priorité:", notif.priority);
-        console.log("Lien:", notif.link || "Aucun");
+
+      setNotifications(prev => {
+        if (loadMore) {
+          // Éviter les doublons
+          const existingIds = new Set(prev.map(n => n.id));
+          const uniqueNew = formattedNotifications.filter(n => !existingIds.has(n.id));
+          return [...prev, ...uniqueNew];
+        } else {
+          return formattedNotifications;
+        }
       });
-      console.log("==============================");
-      
-      const unreadCount = formattedNotifications.filter(n => n.etat === 0).length;
-      setUnreadCount(unreadCount);
+
+      setHasMore(newNotifications.length > 0 && newNotifications.length >= 10);
+      if (loadMore) setPage(currentPage);
+
     } catch (error) {
       console.error("Fetch notifications error:", error);
-      Alert.alert('Erreur', 'Impossible de charger les notifications');
+      Alert.alert("Erreur", "Impossible de charger les notifications");
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setExpandedIds(new Set());
-    await fetchNotifications();
+    setPage(0);
+    setExpandedNotifications({});
+    setHasMore(true);
+    await fetchNotifications(false);
     setRefreshing(false);
-  }, []);
+  };
 
-  const toggleExpand = useCallback((id) => {
-    setExpandedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
+  const handleLoadMore = () => {
+    if (!searchQuery && hasMore && !isLoadingMore) {
+      fetchNotifications(true);
+    }
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedNotifications(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleLinkPress = async (url) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
       } else {
-        newSet.add(id);
+        Alert.alert('Erreur', 'Impossible d\'ouvrir ce lien');
       }
-      return newSet;
-    });
-  }, []);
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir ce lien');
+    }
+  };
 
-  // Barre de recherche - OPTIMISÉE
-  const SearchBar = useCallback(() => (
-    <View style={styles.searchContainer}>
-      <View style={styles.searchInputContainer}>
-        <View style={styles.searchIconWrapper}>
-          <Ionicons name="search" size={20} color="#2738a5ff" />
-        </View>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Rechercher dans les notifications..."
-          placeholderTextColor="#A1A1AA"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          autoCorrect={false}
-          autoCapitalize="none"
-          clearButtonMode="while-editing"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearSearchBtn}
-            onPress={() => setSearchQuery('')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close-circle" size={20} color="#A1A1AA" />
-          </TouchableOpacity>
-        )}
-      </View>
-      
-      {searchQuery.length > 0 && (
-        <View style={styles.searchResultsIndicator}>
-          <Text style={styles.searchResultsText}>
-            {filteredNotifications.length} résultat{filteredNotifications.length > 1 ? 's' : ''} trouvé{filteredNotifications.length > 1 ? 's' : ''}
-          </Text>
-        </View>
-      )}
-    </View>
-  ), [searchQuery, filteredNotifications.length]);
+  const renderItem = useCallback(({ item }) => {
+    if (!item || !item.id) return null;
 
-  // Rendu des notifications - OPTIMISÉ
-  const renderNotification = useCallback(({ item, index }) => {
-    const isExpanded = expandedIds.has(item.id);
+    const isExpanded = expandedNotifications[item.id] || false;
     const icon = getNotificationIcon(item.title);
-    const cleanTitle = stripHtml(item.title || 'Sans titre');
-    const cleanContent = stripHtml(item.content || '');
-    const wordCount = getWordCount(cleanContent);
-    const isLongContent = wordCount > 30 || cleanContent.length > 200;
+    const color = getNotificationColor(item.title);
+    const displayText = item.text || item.content || item.title || '';
+    const shortText = displayText.length > 3 ? displayText.substring(0, 3) + '...' : displayText;
+    const showExpand = displayText.length > 3;
     const isRead = item.etat === 1;
-    const shouldShowExpand = isLongContent;
-
-    // Déterminer la couleur de l'icône selon le type
-    const getIconColor = () => {
-      if (item.priority === 'high') return '#EF4444';
-      if (cleanTitle.toLowerCase().includes('validation') || cleanTitle.toLowerCase().includes('approuvé')) return '#10B981';
-      if (cleanTitle.toLowerCase().includes('rejet') || cleanTitle.toLowerCase().includes('refus')) return '#EF4444';
-      if (cleanTitle.toLowerCase().includes('urgent')) return '#F59E0B';
-      return '#2738a5ff';
-    };
-
-    const iconColor = getIconColor();
+    const links = extractLinks(displayText);
 
     return (
-      <View style={[styles.notificationCard, !isRead && styles.unreadCard]}>
-        <TouchableOpacity 
-          activeOpacity={0.8}
-          onPress={() => shouldShowExpand && toggleExpand(item.id)}
-          style={styles.cardTouchable}
-        >
-          {/* Indicateur de statut */}
-          {!isRead && <View style={[styles.unreadIndicator, { backgroundColor: iconColor }]} />}
-          
-          {/* En-tête de la notification */}
-          <View style={styles.notifHeader}>
-            <View style={[styles.iconCircle, { backgroundColor: iconColor }]}>
-              <Ionicons name={icon} size={22} color="#FFFFFF" />
-            </View>
-            
-            <View style={styles.notifHeaderText}>
-              <Text style={[styles.notifTitle, !isRead && styles.unreadNotifTitle]} numberOfLines={2}>
-                {cleanTitle}
-              </Text>
-              <Text style={styles.notifDate}>
-                {formatDate(item.date)}
-              </Text>
-            </View>
-            
-            {item.priority === 'high' && (
-              <View style={styles.urgentBadge}>
-                <Ionicons name="warning" size={16} color="#FFFFFF" />
-              </View>
-            )}
+      <Animated.View style={[
+        styles.card,
+        {
+          opacity: cardsAnim,
+          transform: [{
+            translateY: cardsAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [50, 0]
+            })
+          }]
+        }
+      ]}>
+        <LinearGradient
+          colors={isRead ? ['rgba(248,250,252,0.98)', 'rgba(248,250,252,1)'] : ['rgba(255,255,255,0.98)', 'rgba(255,255,255,1)']}
+          style={styles.cardGradient}
+        />
+
+        <View style={[styles.statusBar, { backgroundColor: color }]} />
+
+        {!isRead && (
+          <View style={[styles.unreadIndicator, { backgroundColor: color }]} />
+        )}
+
+        <View style={styles.cardHeader}>
+          <View style={[styles.icon, { backgroundColor: `${color}20` }]}>
+            <Ionicons name={icon} size={22} color={color} />
           </View>
 
-          {/* Contenu de la notification */}
-          {cleanContent && (
-            <View style={styles.notifContent}>
-              {isExpanded ? (
-                <View style={styles.expandedContentContainer}>
-                  <ScrollView 
-                    style={styles.fullContentScroll}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator={isLongContent}
-                    contentContainerStyle={styles.scrollContent}
-                  >
-                    <RenderTextWithLinks 
-                      text={cleanContent}
-                      style={styles.fullContentText}
-                    />
-                  </ScrollView>
-            
-                </View>
-              ) : (
-                <View>
-                  <RenderTextWithLinks 
-                    text={cleanContent.length > 120 ? cleanContent.substring(0, 120) + '...' : cleanContent}
-                    style={styles.previewText}
-                    numberOfLines={3}
-                  />
-            
-                </View>
+          <View style={styles.headerText}>
+            <Text style={[styles.title, isRead ? styles.readTitle : styles.unreadTitle]} numberOfLines={2}>
+              {item.title || 'Notification sans titre'}
+            </Text>
+            <View style={styles.meta}>
+              <Ionicons name="time-outline" size={12} color="#64748B" />
+              <Text style={styles.metaText}>{formatTime(item.date)}</Text>
+              <View style={styles.separator} />
+              <Ionicons name="calendar-outline" size={12} color="#64748B" />
+              <Text style={styles.metaText}>{formatDate(item.date)}</Text>
+              {item.type && (
+                <>
+                  <View style={styles.separator} />
+                  <Ionicons name="pricetag-outline" size={12} color="#64748B" />
+                  <Text style={styles.metaText}>{item.type}</Text>
+                </>
               )}
             </View>
-          )}
+          </View>
+        </View>
 
-          {/* Lien si disponible */}
-          {item.link && (
-            <TouchableOpacity 
-              style={styles.linkContainer}
-              onPress={() => {
-                Alert.alert(
-                  'Ouvrir le lien',
-                  'Voulez-vous ouvrir ce lien externe ?',
-                  [
-                    { text: 'Annuler', style: 'cancel' },
-                    { 
-                      text: 'Ouvrir', 
-                      onPress: () => Linking.openURL(item.link).catch(() => 
-                        Alert.alert('Erreur', 'Impossible d\'ouvrir le lien')
-                      )
-                    }
-                  ]
-                );
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="link-outline" size={16} color="#2738a5ff" />
-              <Text style={styles.linkText} numberOfLines={1}>
-                Ouvrir le lien
-              </Text>
-              <Ionicons name="open-outline" size={14} color="#2738a5ff" />
-            </TouchableOpacity>
-          )}
+        <View style={styles.contentContainer}>
+          <Text style={[styles.content, isRead && styles.readContent]}>
+            {isExpanded ? displayText : shortText}
+          </Text>
 
-          {/* Actions */}
-          {shouldShowExpand && (
-            <View style={styles.actionsContainer}>
-              <TouchableOpacity 
-                style={styles.expandBtn}
-                onPress={() => toggleExpand(item.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.expandBtnText}>
-                  {isExpanded ? 'Réduire' : 'Lire plus'}
-                </Text>
-                <Ionicons 
-                  name={isExpanded ? "chevron-up" : "chevron-down"} 
-                  size={16} 
-                  color="#2738a5ff" 
-                />
-              </TouchableOpacity>
+          {/* Affichage des liens si présents */}
+          {links.length > 0 && (
+            <View style={styles.linksContainer}>
+              {links.map((link, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.linkButton}
+                  onPress={() => handleLinkPress(link)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="link-outline" size={14} color="#3B82F6" style={styles.linkIcon} />
+                  <Text style={styles.linkText} numberOfLines={1}>
+                    Lien {index + 1}
+                  </Text>
+                  <Ionicons name="open-outline" size={14} color="#3B82F6" style={styles.openIcon} />
+                </TouchableOpacity>
+              ))}
             </View>
           )}
-        </TouchableOpacity>
+        </View>
+
+        {(showExpand || item.text || item.content) && (
+          <TouchableOpacity
+            style={[styles.expandButton, {
+              borderColor: `${color}30`,
+              backgroundColor: `${color}05`
+            }]}
+            onPress={() => toggleExpand(item.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.expandContent}>
+              <Text style={[styles.expandText, { color }]}>
+                {isExpanded ? 'Voir moins' : 'Voir les détails'}
+              </Text>
+              <Ionicons
+                name={isExpanded ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={color}
+                style={styles.chevronIcon}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
+      </Animated.View>
+    );
+  }, [expandedNotifications, cardsAnim]);
+
+  const renderGroup = useCallback(({ item: group }) => {
+    if (!group || !group.notifications || group.notifications.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.group} key={group.dateKey}>
+        <View style={styles.groupHeader}>
+          <View style={styles.groupHeaderContent}>
+            <View style={styles.groupIconContainer}>
+              <Ionicons name="calendar" size={18} color="#3B82F6" />
+            </View>
+            <Text style={styles.groupTitle}>{group.dateLabel}</Text>
+            <View style={styles.groupBadge}>
+              <Text style={styles.groupBadgeText}>{group.notifications.length}</Text>
+            </View>
+          </View>
+          <View style={styles.groupLine} />
+        </View>
+        {group.notifications.map((item, index) => (
+          <View key={`${item.id || index}_${index}`} style={styles.itemContainer}>
+            {renderItem({ item })}
+          </View>
+        ))}
       </View>
     );
-  }, [expandedIds, toggleExpand]);
+  }, [renderItem]);
 
-  // État vide - OPTIMISÉ
-  const EmptyState = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <LinearGradient
-        colors={['#F8FAFC', '#F1F5F9']}
-        style={styles.emptyIconContainer}
-      >
-        <Ionicons 
-          name={searchQuery ? "search-outline" : "notifications-off-outline"} 
-          size={48} 
-          color="#2738a5ff" 
+  const renderEmpty = () => (
+    <View style={styles.empty}>
+      <View style={styles.emptyIconContainer}>
+        <Ionicons
+          name={searchQuery ? "search-outline" : "notifications-off-outline"}
+          size={64}
+          color="#CBD5E1"
         />
-      </LinearGradient>
-      
+      </View>
       <Text style={styles.emptyTitle}>
         {searchQuery ? "Aucun résultat trouvé" : "Aucune notification"}
       </Text>
-      
-      <Text style={styles.emptySubtitle}>
-        {searchQuery 
+      <Text style={styles.emptyText}>
+        {searchQuery
           ? `Aucune notification ne correspond à "${searchQuery}"`
-          : "Vous n'avez pas de nouvelles notifications pour le moment"
-        }
+          : "Vous n'avez pas de nouvelles notifications pour le moment."}
       </Text>
-      
       {searchQuery && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.clearSearchButton}
           onPress={() => setSearchQuery('')}
           activeOpacity={0.8}
         >
-          <Text style={styles.clearSearchButtonText}>Effacer la recherche</Text>
+          <Ionicons
+            name="refresh-outline"
+            size={16}
+            color="#FFFFFF"
+            style={styles.clearSearchIcon}
+          />
+          <Text style={styles.clearSearchText}>Effacer la recherche</Text>
         </TouchableOpacity>
       )}
     </View>
-  ), [searchQuery]);
+  );
 
-  const keyExtractor = useCallback((item) => item.id.toString(), []);
+  const groupedData = groupNotificationsByDate(filteredNotifications);
 
-  const ItemSeparatorComponent = useCallback(() => <View style={styles.separator} />, []);
-
-  return (
-    <View style={styles.container}>
-      <Header title="Notifications" withBackButton />
-
-      <DynamicHeader 
-        title="Mes notifications"
-        subtitle={`Gestion des demandes administratives`}
-        iconName="bell-outline"
-        userInfo={userInfo}
-      />
-
-      <SearchBar />
-
-      {loading && !refreshing ? (
+  if (loading && !refreshing) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Header title="Notifications" withBackButton />
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingSpinner}>
-            <ActivityIndicator size="large" color="#2738a5ff" />
-          </View>
+          <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingText}>Chargement des notifications...</Text>
         </View>
-      ) : (
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <Header title="Notifications" withBackButton />
+
+      <DynamicHeader
+        title="Mes notifications"
+        subtitle="Gestion des demandes administratives"
+        iconName="file-document-multiple"
+        userInfo={userInfo}
+        slideAnim={slideAnim}
+      />
+
+      <Animated.View style={[
+        styles.searchContainer,
+        {
+          opacity: searchAnim,
+          transform: [{
+            translateY: searchAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-30, 0]
+            })
+          }]
+        }
+      ]}>
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher des notifications..."
+            placeholderTextColor="#94A3B8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => setSearchQuery('')}
+              activeOpacity={0.6}
+            >
+              <Ionicons name="close-circle" size={20} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
+
+      <View style={styles.listContainer}>
         <FlatList
-          data={filteredNotifications}
-          renderItem={renderNotification}
-          keyExtractor={keyExtractor}
+          data={groupedData}
+          renderItem={renderGroup}
+          keyExtractor={(group) => group.dateKey}
           contentContainerStyle={[
-            styles.listContainer,
-            filteredNotifications.length === 0 && styles.emptyListContainer
+            styles.listContent,
+            groupedData.length === 0 && styles.emptyListContent
           ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={["#2738a5ff"]}
-              tintColor="#2738a5ff"
-              title="Actualisation..."
-              titleColor="#2738a5ff"
+              colors={["#3B82F6"]}
+              tintColor="#3B82F6"
             />
           }
-          ListEmptyComponent={EmptyState}
+          ListEmptyComponent={renderEmpty}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={styles.footerText}>Chargement...</Text>
+              </View>
+            ) : null
+          }
           showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={ItemSeparatorComponent}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={8}
-          windowSize={10}
-          initialNumToRender={6}
-          getItemLayout={(data, index) => ({
-            length: 200,
-            offset: 216 * index,
-            index,
-          })}
         />
-      )}
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
-// Styles - OPTIMISÉS
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
-  
-  // Styles de la barre de recherche
+  listContainer: {
+    flex: 1,
+  },
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  searchInputContainer: {
+  searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-    borderWidth: 2,
-    borderColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  searchIconWrapper: {
+  searchIcon: {
     marginRight: 12,
-    padding: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#18181B',
+    fontSize: 15,
+    color: '#1E293B',
     fontWeight: '500',
-    paddingVertical: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
   },
-  clearSearchBtn: {
-    padding: 6,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+  clearButton: {
+    marginLeft: 8,
+    padding: 4,
   },
-  searchResultsIndicator: {
-    marginTop: 8,
-    paddingHorizontal: 4,
-  },
-  searchResultsText: {
-    fontSize: 13,
-    color: '#71717A',
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  
-  // Styles de la liste
-  listContainer: {
-    paddingHorizontal: 20,
+  listContent: {
     paddingBottom: 20,
   },
-  emptyListContainer: {
+  emptyListContent: {
     flexGrow: 1,
   },
-  separator: {
-    height: 16,
+  group: {
+    marginTop: 24,
+    paddingHorizontal: 20,
   },
-  
-  // Styles des cartes de notification
-  notificationCard: {
+  groupHeader: {
+    marginBottom: 16,
+  },
+  groupHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  groupIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EBF4FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  groupTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    flex: 1,
+  },
+  groupBadge: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  groupBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  groupLine: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginLeft: 44,
+  },
+  itemContainer: {
+    marginBottom: 16,
+  },
+  card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    marginBottom: 0,
   },
-  unreadCard: {
-    borderColor: '#E0E7FF',
-    backgroundColor: '#FEFFFE',
+  cardGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  cardTouchable: {
-    position: 'relative',
-  },
-  unreadIndicator: {
+  statusBar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 4,
-    zIndex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  
-  // Styles de l'en-tête de notification
-  notifHeader: {
+  unreadIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    paddingBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  iconCircle: {
+  icon: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -697,136 +770,113 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  notifHeaderText: {
+  headerText: {
     flex: 1,
-    minHeight: 44,
-    justifyContent: 'center',
   },
-  notifTitle: {
+  unreadTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  readTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#71717A',
+    color: '#64748B',
+    marginBottom: 6,
     lineHeight: 22,
-    marginBottom: 4,
   },
-  unreadNotifTitle: {
-    color: '#18181B',
-    fontWeight: '700',
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
-  notifDate: {
-    fontSize: 13,
-    color: '#A1A1AA',
+  metaText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginLeft: 4,
+    marginRight: 8,
     fontWeight: '500',
   },
-  urgentBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
+  separator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 6,
   },
-  
-  // Styles du contenu
-  notifContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+  contentContainer: {
+    marginBottom: 16,
   },
-  expandedContentContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-  },
-  previewText: {
-    fontSize: 15,
-    color: '#52525B',
-    lineHeight: 22,
-  },
-  fullContentScroll: {
-    maxHeight: 300,
-  },
-  scrollContent: {
-    paddingBottom: 8,
-  },
-  fullContentText: {
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 24,
-    textAlign: 'left',
-  },
-  linkTextInContent: {
-    color: '#2738a5ff',
-    textDecorationLine: 'underline',
-    fontWeight: '600',
-  },
-  
-  // Styles des actions
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  
-  },
-  expandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  expandBtnText: {
+  content: {
     fontSize: 14,
-    color: '#2738a5ff',
-    fontWeight: '600',
-    marginRight: 6,
+    color: '#475569',
+    lineHeight: 22,
+    fontWeight: '400',
   },
-  
-  // Styles des liens
-  linkContainer: {
+  readContent: {
+    color: '#64748B',
+  },
+  linksContainer: {
+    marginTop: 12,
+  },
+  linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    marginTop: 8,
-    backgroundColor: '#F8FAFC',
-    marginHorizontal: 20,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    paddingVertical: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  linkIcon: {
+    marginRight: 8,
   },
   linkText: {
-    color: '#2738a5ff',
+    flex: 1,
+    fontSize: 13,
+    color: '#3B82F6',
+    fontWeight: '500',
+  },
+  openIcon: {
+    marginLeft: 8,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignSelf: 'stretch',
+  },
+  expandContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  expandText: {
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
-    marginRight: 8,
-    flex: 1,
   },
-  
-  // Styles de l'état vide
-  emptyContainer: {
+  chevronIcon: {
+    marginLeft: 8,
+  },
+  empty: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-    minHeight: height * 0.5,
+    padding: 40,
+    marginTop: 60,
   },
   emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -834,43 +884,60 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#18181B',
+    color: '#1E293B',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  emptySubtitle: {
-    fontSize: 15,
-    color: '#71717A',
+  emptyText: {
+    fontSize: 14,
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 280,
   },
   clearSearchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 24,
-    backgroundColor: '#2738a5ff',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  clearSearchButtonText: {
+  clearSearchIcon: {
+    marginRight: 8,
+  },
+  clearSearchText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
-  
-  // Styles de chargement
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-  },
-  loadingSpinner: {
-    marginBottom: 16,
+    paddingTop: 60,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#71717A',
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 16,
+    fontWeight: '500',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#64748B',
+    marginLeft: 8,
     fontWeight: '500',
   },
 });

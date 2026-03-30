@@ -44,50 +44,54 @@ export default function ScheduleScreen({ navigation }) {
     }
   }, [navigation]);
 
-  // Fetch schedule from API
-  const fetchSchedule = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        throw new Error('Token non trouvé');
-      }
-
-      const response = await fetch(`https://isbadmin.tn/api/getCalendar`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.status === 401) {
-        await handleTokenError();
-        return;
-      }
-
-      const result = await response.json();
-
- if (response.ok && result.pdfUrl) {
-  // Corriger l'URL relative en absolue
-  const absoluteUrl = result.pdfUrl.startsWith('http')
-    ? result.pdfUrl
-    : `${BASE_URL_APP.replace(/\/$/, '')}/${result.pdfUrl.replace(/^\//, '')}`;
-  
-  setPdfUrl(absoluteUrl);
-  setError(null);
-} else {
-  throw new Error(result.message || 'Erreur lors de la récupération du calendrier');
-}
-
-    } catch (err) {
-      console.log('Fetch schedule error:', err);
-      setError(err.message);
-      Alert.alert('Erreur', err.message);
+const fetchSchedule = useCallback(async () => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) {
+      throw new Error('Token non trouvé');
     }
-  }, [handleTokenError]);
 
-  // Fetch user info and schedule
+    const response = await fetch(`https://isbadmin.tn/api/getCalendar`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.status === 401) {
+      await handleTokenError();
+      return;
+    }
+
+    const result = await response.json();
+
+    if (response.ok && result.pdfUrl) {
+      let finalUrl;
+      
+      if (result.pdfUrl.startsWith('http')) {
+        finalUrl = result.pdfUrl;
+      } else {
+        const cleanPath = result.pdfUrl.replace(/^\/api\//, '/').replace(/^\/+/, '');
+        finalUrl = `https://isbadmin.tn/${cleanPath}`;
+      }
+
+      console.log("✅ URL originale:", result.pdfUrl);
+      console.log("✅ Lien PDF corrigé:", finalUrl);
+
+      setPdfUrl(finalUrl);
+      setError(null);
+    } else {
+      throw new Error(result.message || 'Erreur lors de la récupération du calendrier');
+    }
+
+  } catch (err) {
+    console.log('Fetch schedule error:', err);
+    setError(err.message);
+    Alert.alert('Erreur', err.message);
+  }
+}, [handleTokenError]);
   const fetchUserInfo = useCallback(async () => {
     setLoading(true);
     try {
