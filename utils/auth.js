@@ -20,6 +20,11 @@ export const setStoredToken = async (token) => {
   authLog('Token sauvegarde');
 };
 
+export const clearStoredToken = async () => {
+  await AsyncStorage.removeItem(USER_TOKEN_KEY);
+  authLog('Token local supprime');
+};
+
 export const clearStoredSession = async () => {
   await AsyncStorage.multiRemove([
     'userToken',
@@ -35,7 +40,7 @@ export const refreshStoredToken = async () => {
 
   if (!currentToken) {
     authLog('Refresh ignore: pas de token');
-    return null;
+    return { error: 'NO_TOKEN' };
   }
 
   try {
@@ -48,24 +53,29 @@ export const refreshStoredToken = async () => {
       },
     });
 
+    if (response.status === 401 || response.status === 403) {
+      authLog(`Refresh refuse: HTTP ${response.status} (Authentication Error, token local conserve)`);
+      return { error: 'AUTH_ERROR' };
+    }
+
     if (!response.ok) {
-      authLog(`Refresh refuse: HTTP ${response.status}`);
-      return null;
+      authLog(`Refresh refuse: HTTP ${response.status} (Server Error)`);
+      return { error: 'SERVER_ERROR' };
     }
 
     const data = await response.json();
 
     if (!data?.token) {
       authLog('Refresh invalide: token absent dans la reponse');
-      return null;
+      return { error: 'SERVER_ERROR' };
     }
 
     await setStoredToken(data.token);
     authLog('Refresh reussi');
-    return data.token;
+    return { token: data.token };
   } catch (error) {
-    authLog('Erreur refreshStoredToken:', error.message);
-    return null;
+    authLog('Erreur refreshStoredToken (Network Error):', error.message);
+    return { error: 'NETWORK_ERROR' };
   }
 };
 
@@ -77,7 +87,14 @@ export const getUsableToken = async () => {
     return null;
   }
 
-  const refreshedToken = await refreshStoredToken();
+  const result = await refreshStoredToken();
+  const refreshedToken = result?.token;
+
+  if (result?.error === 'AUTH_ERROR') {
+    authLog('Refresh refuse, token local reutilise');
+    return token;
+  }
+
   authLog(refreshedToken ? 'Token rafraichi utilise' : 'Token local existant reutilise');
   return refreshedToken || token;
 };
@@ -108,7 +125,8 @@ export const fetchWithAutoRefresh = async (url, options = {}) => {
   }
 
   authLog(`HTTP 401 detecte, tentative refresh: ${url}`);
-  const refreshedToken = await refreshStoredToken();
+  const result = await refreshStoredToken();
+  const refreshedToken = result?.token;
 
   if (!refreshedToken) {
     authLog('Refresh impossible apres 401');

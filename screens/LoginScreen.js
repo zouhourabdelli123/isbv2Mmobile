@@ -27,10 +27,10 @@ import { clearStoredSession, refreshStoredToken } from '../utils/auth';
 const { width, height } = Dimensions.get('window');
 
 let refreshInterval = null;
-const REFRESH_TIME = 2 * 24 * 60 * 60 * 1000; // 2 jours = 2 × 24h × 60min × 60sec × 1000ms
+const REFRESH_TIME = 55 * 60 * 1000;
 let isRefreshing = false;
-let failedRefreshCount = 0; // Compteur d'échecs consécutifs
-const MAX_FAILED_ATTEMPTS = 3; // Nombre maximum d'échecs avant alerte
+let failedRefreshCount = 0; 
+const MAX_FAILED_ATTEMPTS = 3; 
 
 const ISB_COLORS = {
   primary: '#1e40af',
@@ -60,7 +60,6 @@ const ISB_COLORS = {
   borderSuccess: '#10b981',
 };
 
-// Fonction pour rafraîchir le token SANS déconnecter l'utilisateur
 const refreshToken = async () => {
   try {
     const token = await AsyncStorage.getItem('userToken');
@@ -188,12 +187,18 @@ const initializeTokenRefresh = () => {
 };
 
 // Fonction pour vérifier si l'utilisateur est connecté et démarrer le rafraîchissement
-const checkAndStartTokenRefresh = async () => {
+const checkAndStartTokenRefresh = async (navigation) => {
   try {
     const token = await AsyncStorage.getItem('userToken');
     if (token) {
       console.log('✅ Utilisateur déjà connecté, démarrage du rafraîchissement automatique');
       initializeTokenRefresh();
+      if (navigation) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      }
       return true;
     }
   } catch (error) {
@@ -277,7 +282,7 @@ const LoginPage = ({ navigation }) => {
     floating();
 
     // Vérifier si l'utilisateur est déjà connecté
-    checkAndStartTokenRefresh();
+    checkAndStartTokenRefresh(navigation);
 
     // Nettoyer à la sortie
     return () => {
@@ -464,7 +469,10 @@ const LoginPage = ({ navigation }) => {
         // Redirection
         setTimeout(() => {
           setIsModalVisible(false);
-          navigation.navigate('Home');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
         }, 2000);
 
       } else {

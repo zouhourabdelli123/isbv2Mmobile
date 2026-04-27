@@ -1,0 +1,5 @@
+node_modules/
+.expo/
+.gradle/
+android/.gradle/
+android/build/

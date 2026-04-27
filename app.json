@@ -54,9 +54,13 @@
       "androidCollapsedTitle": "ISB Notifications"
     },
     "plugins": [
-      "react-native-iap",
+      [
+        "react-native-iap",
+        {
+          "paymentProvider": "Play Store"
+        }
+      ],
       "@react-native-firebase/app",
-      "@react-native-firebase/auth",
       "./plugins/withNotificationColorFix",
       [
         "expo-build-properties",
@@ -66,8 +70,7 @@
           },
           "android": {
             "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "34.0.0"
+            "targetSdkVersion": 35
           }
         }
       ]

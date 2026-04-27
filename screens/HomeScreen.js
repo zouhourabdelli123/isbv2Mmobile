@@ -203,6 +203,13 @@ export default function HomeScreen() {
       gradient: ['#1E3A8A', '#3B82F6'],
       description: 'Gérez vos fichiers'
     },
+    {
+      title: 'Formulaires',
+      icon: 'clipboard-outline',
+      screen: 'Formulaires',
+      gradient: ['#F59E0B', '#FBBF24'],
+      description: 'Questionnaires a remplir'
+    },
   ];
 
   const pdfDocuments = [

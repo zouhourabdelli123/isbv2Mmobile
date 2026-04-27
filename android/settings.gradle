@@ -36,4 +36,6 @@ rootProject.name = 'ISB'
 expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
+include ':react-native-async-storage_async-storage'
+include ':react-native-gesture-handler'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)

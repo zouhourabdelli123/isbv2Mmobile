@@ -19,6 +19,8 @@ import Messagerie from "./screens/messagerieScreen";
 import Reclamation from "./screens/ReclamationScreen";
 import CreateReclamtion from "./screens/CreateReclamtion.js";
 import SuiviReclamation from "./screens/Suivireclamtion.js";
+import FormulairesScreen from "./screens/FormulairesScreen";
+import FormulaireDetailScreen from "./screens/FormulaireDetailScreen";
 
 const Stack = createNativeStackNavigator ();
 
@@ -47,6 +49,8 @@ export default function AppNavigator(props, ref) {
           <Stack.Screen name="Reclamation" component={Reclamation} />
           <Stack.Screen name="CreateReclamtion" component={CreateReclamtion} />
           <Stack.Screen name="SuiviReclamation" component={SuiviReclamation} />
+          <Stack.Screen name="Formulaires" component={FormulairesScreen} />
+          <Stack.Screen name="FormulaireDetail" component={FormulaireDetailScreen} />
 
       </Stack.Navigator>
     </NavigationContainer>
